@@ -3,7 +3,7 @@ import {asyncHandler} from '../../lib/util.js';
 import {Validator} from '../../lib/validator.js';
 import { createSpotPostRequest, updateSpotPostRequest } from './create-spotPost.request.js';
 import {ValidationError} from '../../lib/error-definitions.js';
-import { SpotPost } from './spotPost.schema.js';
+import { SpotLike, SpotPost } from './spotPost.schema.js';
 import {v2 as cloudinary} from 'cloudinary';
 import { NotFoundError, UnauthenticatedError, UnauthorizedError } from '../../lib/error-definitions.js';
 //import { createNotification } from "../notifications/notification.service.js";
@@ -322,5 +322,71 @@ export const updateSpotPost = asyncHandler(async (req, res) => {
     success: true,
     message: "post updated successfully",
     data: updatedSpotPost
+  });
+});
+
+export const toggleLikeSpotPost = asyncHandler(async (req, res) => {
+  const {id} = req.params;
+  //ensure authenticated (works for both User and SpotOwner)
+  if (!req.user && !req.spotOwner) {
+    throw new UnauthenticatedError("Authentication required");
+  }
+
+  //determine who is liking
+  let accountId;
+  let accountModel;
+
+  if (req.user) {
+    accountId = req.user.id;
+    accountModel = "User";
+  } else {
+    accountId = req.spotOwner.id;
+    accountModel = "SpotOwner";
+  }
+
+  //find the post 
+  const spotPost = await SpotPost.findById(id);
+
+  if (!spotPost) {
+    throw new NotFoundError("spot post not found");
+  }
+
+  //check if already liked
+  const existingLike = await SpotLike.findOne({
+    spotPost: id,
+    user: accountId,
+    userModel: accountModel,
+  });
+
+  //unlike
+  if (existingLike) {
+    await SpotLike.deleteOne({_id: existingLike._id});
+
+    spotPost.likeCount = Math.max(spotPost.likeCount -1, 0);
+    await spotPost.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Spot post unliked successfully",
+      liked: false,
+      likeCount: spotPost.likeCount,
+    });
+  }
+
+  //like
+  await SpotLike.create({
+    spotPost: id,
+    user: accountId,
+    userModel: accountModel,
+  });
+
+  spotPost.likeCount += 1;
+  await spotPost.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "spot post liked successfully",
+    liked: true,
+    likeCount: spotPost.likeCount,
   });
 });
