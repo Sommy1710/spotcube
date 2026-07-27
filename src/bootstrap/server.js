@@ -10,6 +10,7 @@ import express from 'express';
 import {createServer} from 'http';
 import {authRouter} from '../modules/auth/api.js';
 import { spotOwnerRouter } from '../modules/spotOwner/spotOwner.routes.js';
+import {spotPostRouter} from '../modules/spotPost/spotPost.routes.js';
 import cookieParser  from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from '../docs/swagger.js';
@@ -54,6 +55,7 @@ app.get('/health', (req, res) => {
 //app.use('/api/email', emailRoutes);
 app.use('/api/auth', authRouter);
 app.use('/api/spotOwner', spotOwnerRouter);
+app.use('/api/spotPost', spotPostRouter);
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
