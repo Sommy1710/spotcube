@@ -336,13 +336,16 @@ export const toggleLikeSpotPost = asyncHandler(async (req, res) => {
   let accountId;
   let accountModel;
 
-  if (req.user) {
+  if (req.user?.role === "spotOwner") {
+    accountId = req.user.id;
+    accountModel = "SpotOwner";
+} else if (req.user) {
     accountId = req.user.id;
     accountModel = "User";
-  } else {
+} else if (req.spotOwner) {
     accountId = req.spotOwner.id;
     accountModel = "SpotOwner";
-  }
+}
 
   //find the post 
   const spotPost = await SpotPost.findById(id);
@@ -390,3 +393,47 @@ export const toggleLikeSpotPost = asyncHandler(async (req, res) => {
     likeCount: spotPost.likeCount,
   });
 });
+
+export const fetchSpotLikes = asyncHandler(async (req, res) => {
+  const {id} = req.params;
+
+  //ensure post exists
+  const spotPost = await SpotPost.findById(id);
+  if (!spotPost) {
+    throw new NotFoundError("spot post not found");
+  }
+
+  const page = Number(req.query.page) || 1;
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const skip = (page -1) * limit;
+
+  const [likes, total] = await Promise.all([
+    SpotLike.find({spotPost: id})
+    .populate({
+      path: "user",
+      select:  "username profilePhoto"
+    })
+    .sort({createdAt: -1})
+    .skip(skip)
+    .limit(limit)
+    .lean(),
+    SpotLike.countDocuments({spotPost: id})
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: "spot post likes retrieved successfully",
+    data: {
+      likes,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total/limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1
+      }
+    }
+  });
+});
+

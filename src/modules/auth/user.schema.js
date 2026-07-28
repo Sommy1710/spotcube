@@ -35,6 +35,16 @@ const UserSchema = new Schema({
         default: 'Nigeria'
     },
 
+    followersCount: {
+        type: Number,
+        default: 0
+    },
+
+    followingCount: {
+        type: Number,
+        default: 0
+    },
+
     bio: {
         type: String
     },
@@ -154,44 +164,6 @@ const UserSchema = new Schema({
         enum: ["user", "admin"],
         default: "user",
     },
-
-    followers: [
-    {
-        accountId: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: true,
-            refPath: "followers.accountModel"
-        },
-        accountModel: {
-            type: String,
-            enum: ["User", "SpotOwner"],
-            required: true
-        },
-        followedAt: {
-            type: Date,
-            default: Date.now
-        }
-    }
-],
-
-following: [
-    {
-        accountId: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: true,
-            refPath: "following.accountModel"
-        },
-        accountModel: {
-            type: String,
-            enum: ["User", "SpotOwner"],
-            required: true
-        },
-        followedAt: {
-            type: Date,
-            default: Date.now
-        }
-    }
-],
 
     emailVerificationCode: String,
     emailCodeExpiry: Date,

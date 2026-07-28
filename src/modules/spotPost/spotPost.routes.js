@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import { createNewSpotPost, deleteSingleSpotPost, fetchAllSpotPosts, fetchSpotPost, updateSpotPost, toggleLikeSpotPost,
+import { createNewSpotPost, deleteSingleSpotPost, fetchAllSpotPosts, fetchSpotPost, updateSpotPost,fetchSpotLikes, toggleLikeSpotPost,
  } from './spotPost.controller.js';
 import {uploadListingMedia} from '../../lib/upload.js';
 import spotOwnerMiddleware from '../../app/middleware/spotOwner.middleware.js';
@@ -12,5 +12,6 @@ router.get('/fetch-spotPost/:id', spotOwnerMiddleware, fetchSpotPost);
 router.put('/update-spotPost/:id', spotOwnerMiddleware, updateSpotPost);
 router.post("/like-spot-post/:id", dualAuthMiddleware, toggleLikeSpotPost);
 router.delete('/delete-spotPost/:id', spotOwnerMiddleware, deleteSingleSpotPost);
+router.get('/fetch-spot-likes/:id', dualAuthMiddleware, fetchSpotLikes);
 
 export const spotPostRouter = router;

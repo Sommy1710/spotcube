@@ -122,49 +122,20 @@ location: { type: String, required: true },
             enum: ["User", "SpotOwner"],
         },
       },
-  
+
+      followersCount: {
+        type: Number,
+        default: 0
+      },
+
+      followingCount: {
+        type: Number,
+        default: 0
+      },
 
     bio: {
         type: String
     },
-
-    followers: [
-    {
-        accountId: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: true,
-            refPath: "followers.accountModel"
-        },
-        accountModel: {
-            type: String,
-            enum: ["User", "SpotOwner"],
-            required: true
-        },
-        followedAt: {
-            type: Date,
-            default: Date.now
-        }
-    }
-],
-
-following: [
-    {
-        accountId: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: true,
-            refPath: "following.accountModel"
-        },
-        accountModel: {
-            type: String,
-            enum: ["User", "SpotOwner"],
-            required: true
-        },
-        followedAt: {
-            type: Date,
-            default: Date.now
-        }
-    }
-],
 
     profilePhoto: {type: String, default: ''},
     isEmailVerified: {type: Boolean, default: false},
@@ -210,29 +181,53 @@ const ProfileViewSchema = new Schema({
 
 export const ProfileView = model("ProfileView", ProfileViewSchema);
 
-/*const FollowSchema = new Schema({
-    followerId: {
+const FollowSchema = new Schema(
+{
+    follower: {
         type: Schema.Types.ObjectId,
-        required: true,
-        refPath: "followerModel"
+        refPath: "followerModel",
+        required: true
     },
+
     followerModel: {
         type: String,
         enum: ["User", "SpotOwner"],
         required: true
     },
-    followingId: {
+
+    following: {
         type: Schema.Types.ObjectId,
-        required: true,
-        refPath: "followingModel"
+        refPath: "followingModel",
+        required: true
     },
+
     followingModel: {
         type: String,
         enum: ["User", "SpotOwner"],
         required: true
     }
-}, {
+},
+{
     timestamps: true
 });
 
-export const Follow = model("Follow", FollowSchema);*/
+FollowSchema.index({
+    follower: 1,
+    followerModel: 1
+});
+
+FollowSchema.index({
+    following: 1,
+    followingModel: 1
+});
+
+FollowSchema.index({
+    follower: 1,
+    followerModel: 1,
+    following: 1,
+    followingModel: 1
+}, {
+    unique: true
+});
+
+export const Follow = model('Follow', FollowSchema);

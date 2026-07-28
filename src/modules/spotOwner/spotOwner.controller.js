@@ -4,7 +4,7 @@ import {Validator} from '../../lib/validator.js';
 import {CreateSpotOwnerRequest, UpdateSpotOwnerRequest} from './create-spotOwner.request.js';
 import { AuthSpotOwnerRequest } from './auth-spotOwner.request.js';
 import { ValidationError, NotFoundError } from '../../lib/error-definitions.js';
-import {SpotOwner} from './spotOwner.schema.js';
+import {Follow, SpotOwner} from './spotOwner.schema.js';
 import {v2 as cloudinary} from 'cloudinary';
 import {sendEmail} from '../../lib/emailService.js';
 import { deleteSpotOwnerById } from './spotOwner.service.js';
@@ -14,7 +14,7 @@ import crypto from 'crypto';
 //import { createNotification } from "../notifications/notification.service.js";
 import {User} from "../auth/user.schema.js";
 import { ProfileView } from './spotOwner.schema.js';
-//import {Follow} from "./spotOwner.schema.js";
+
 
 
 
@@ -462,116 +462,201 @@ export const resetPassword = asyncHandler(async (req, res) => {
 });
 
 export const toggleFollow = asyncHandler(async (req, res) => {
-    let follower;
-    let followerModel;
+    const { id } = req.params;
 
-    // Get authenticated account ID
-    const authId =
-        req.user?._id ||
-        req.user?.id ||
-        req.spotOwner?._id ||
-        req.spotOwner?.id;
-
-    if (!authId) {
-        throw new UnauthorizedError("Unauthorized.");
+    // Ensure authenticated
+    if (!req.user && !req.spotOwner) {
+        throw new UnauthenticatedError("Authentication required");
     }
 
-    // Determine whether authenticated account is a User or SpotOwner
-    follower = await User.findById(authId);
+    // Determine who is performing the follow
+    let followerId;
+    let followerModel;
 
-    if (follower) {
+    if (req.user?.role === "spotOwner") {
+        followerId = req.user.id;
+        followerModel = "SpotOwner";
+    } else if (req.user) {
+        followerId = req.user.id;
         followerModel = "User";
     } else {
-        follower = await SpotOwner.findById(authId);
-
-        if (!follower) {
-            throw new UnauthorizedError("Authenticated account not found.");
-        }
-
+        followerId = req.spotOwner.id;
         followerModel = "SpotOwner";
     }
 
-    const { id } = req.params;
+    // Find account being followed
+    let followingAccount =
+        await User.findById(id).select("_id followersCount followingCount");
 
-    // Prevent following yourself
-    if (follower._id.toString() === id) {
-        throw new ValidationError("You cannot follow yourself.");
-    }
-
-    // Find account to follow
-    let following = await User.findById(id);
     let followingModel = "User";
 
-    if (!following) {
-        following = await SpotOwner.findById(id);
+    if (!followingAccount) {
+        followingAccount =
+            await SpotOwner.findById(id).select("_id followersCount followingCount");
+
         followingModel = "SpotOwner";
     }
 
-    if (!following) {
-        throw new NotFoundError("Account not found.");
+    if (!followingAccount) {
+        throw new NotFoundError("Account not found");
     }
 
-    // Check if already following
-    const alreadyFollowing = follower.following.some(
-        (item) =>
-            item.accountId.toString() === following._id.toString() &&
-            item.accountModel === followingModel
-    );
+    // Prevent self-follow
+    if (
+        followerId.toString() === followingAccount._id.toString() &&
+        followerModel === followingModel
+    ) {
+        throw new ValidationError("You cannot follow yourself.");
+    }
 
-    // ==========================
+    // Check existing relationship
+    const existingFollow = await Follow.findOne({
+        follower: followerId,
+        followerModel,
+        following: followingAccount._id,
+        followingModel,
+    });
+
+    // ======================
     // UNFOLLOW
-    // ==========================
-    if (alreadyFollowing) {
-
-        follower.following = follower.following.filter(
-            (item) =>
-                !(
-                    item.accountId.toString() === following._id.toString() &&
-                    item.accountModel === followingModel
-                )
-        );
-
-        following.followers = following.followers.filter(
-            (item) =>
-                !(
-                    item.accountId.toString() === follower._id.toString() &&
-                    item.accountModel === followerModel
-                )
-        );
+    // ======================
+    if (existingFollow) {
+        await Follow.deleteOne({ _id: existingFollow._id });
 
         await Promise.all([
-            follower.save(),
-            following.save(),
+            followingModel === "User"
+                ? User.findByIdAndUpdate(
+                      followingAccount._id,
+                      { $inc: { followersCount: -1 } }
+                  )
+                : SpotOwner.findByIdAndUpdate(
+                      followingAccount._id,
+                      { $inc: { followersCount: -1 } }
+                  ),
+
+            followerModel === "User"
+                ? User.findByIdAndUpdate(
+                      followerId,
+                      { $inc: { followingCount: -1 } }
+                  )
+                : SpotOwner.findByIdAndUpdate(
+                      followerId,
+                      { $inc: { followingCount: -1 } }
+                  ),
         ]);
 
         return res.status(200).json({
             success: true,
-            action: "unfollowed",
-            message: `You have unfollowed ${following.username}.`,
+            message: "Account unfollowed successfully.",
+            following: false,
         });
     }
 
-    // ==========================
+    // ======================
     // FOLLOW
-    // ==========================
-    follower.following.push({
-        accountId: following._id,
-        accountModel: followingModel,
-    });
-
-    following.followers.push({
-        accountId: follower._id,
-        accountModel: followerModel,
+    // ======================
+    await Follow.create({
+        follower: followerId,
+        followerModel,
+        following: followingAccount._id,
+        followingModel,
     });
 
     await Promise.all([
-        follower.save(),
-        following.save(),
+        followingModel === "User"
+            ? User.findByIdAndUpdate(
+                  followingAccount._id,
+                  { $inc: { followersCount: 1 } }
+              )
+            : SpotOwner.findByIdAndUpdate(
+                  followingAccount._id,
+                  { $inc: { followersCount: 1 } }
+              ),
+
+        followerModel === "User"
+            ? User.findByIdAndUpdate(
+                  followerId,
+                  { $inc: { followingCount: 1 } }
+              )
+            : SpotOwner.findByIdAndUpdate(
+                  followerId,
+                  { $inc: { followingCount: 1 } }
+              ),
     ]);
 
     return res.status(200).json({
         success: true,
-        action: "followed",
-        message: `You are now following ${following.username}.`,
+        message: "Account followed successfully.",
+        following: true,
     });
+});
+
+
+export const fetchProfile = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Determine who is making the request
+  const viewerId = req.user?.id || req.spotOwner?.id || null;
+  const viewerModel = req.user ? "User" : req.spotOwner ? "SpotOwner" : null;
+
+  let profile = null;
+  let accountModel = null;
+
+  // Try User first
+  profile = await User.findById(id).select(
+    "firstname lastname username followersCount followingCount bio state location geoLocation profilePhoto role"
+  );
+
+  if (profile) {
+    accountModel = "User";
+  } else {
+    // Otherwise check SpotOwner
+    profile = await SpotOwner.findById(id).select(
+      "username email followersCount followingCount bio state location geoLocation profilePhoto role"
+    );
+
+    if (profile) {
+      accountModel = "SpotOwner";
+    }
+  }
+
+  if (!profile) {
+    throw new NotFoundError("Profile not found");
+  }
+
+  // Only the owner can see their own email
+  const isOwner =
+    viewerId &&
+    profile._id.toString() === viewerId.toString() &&
+    viewerModel === accountModel;
+
+  if (accountModel === "SpotOwner" && !isOwner) {
+    profile = profile.toObject();
+    delete profile.email;
+  }
+
+  // Check follow status
+  let isFollowing = false;
+
+  if (viewerId && !isOwner) {
+    const follow = await Follow.findOne({
+      follower: viewerId,
+      followerModel: viewerModel,
+      following: profile._id,
+      followingModel: accountModel,
+    });
+
+    isFollowing = !!follow;
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Profile retrieved successfully",
+    data: {
+      accountType: accountModel,
+      isOwner,
+      isFollowing,
+      profile,
+    },
+  });
 });

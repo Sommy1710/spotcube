@@ -1,6 +1,6 @@
 import {Router} from 'express';
 import {createSpotOwnerAccount, verifyEmailOTP, authenticateSpotOwner, deleteSpotOwnerAccount, getAuthenticatedSpotOwner,
-     logoutSpotOwner, deleteSpotOwnerProfilePhoto, updateSpotOwnerAccount,resetPassword, forgotPassword, toggleFollow
+     logoutSpotOwner, deleteSpotOwnerProfilePhoto, updateSpotOwnerAccount,resetPassword, forgotPassword, toggleFollow, fetchProfile
       } from './spotOwner.controller.js';
 import upload from '../../lib/upload.js';
 import spotOwnerMiddleware from '../../app/middleware/spotOwner.middleware.js';
@@ -19,6 +19,7 @@ router.post('/reset-password', resetPassword);
 router.post('/forgot-password', forgotPassword);
 router.post('/follow/:id', dualAuthMiddleware, toggleFollow );
 router.post("/logout", logoutSpotOwner);
+router.get("/fetch-profile/:id", dualAuthMiddleware, fetchProfile);
 
 
 export const spotOwnerRouter = router;

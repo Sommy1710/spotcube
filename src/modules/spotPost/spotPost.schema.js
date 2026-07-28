@@ -15,6 +15,7 @@ const SpotPostSchema = new Schema({
     }
   },
   videos: [{type: String}],
+
   location: { type: String },
   geoLocation: {
     type: {
@@ -70,6 +71,7 @@ const SpotLikeSchema = new Schema(
 
     user: {
       type: Schema.Types.ObjectId,
+      refPath: "userModel",
       required: true,
     },
 
