@@ -10,6 +10,9 @@ import { NotFoundError, UnauthenticatedError, UnauthorizedError } from '../../li
 import {User} from "../auth/user.schema.js"
 import { SpotOwner } from '../spotOwner/spotOwner.schema.js';
 import axios from "axios"; // for geocoding API calls
+import {Follow} from "../spotOwner/spotOwner.schema.js"
+import mongoose from "mongoose";
+import { Types } from "mongoose";
 
 export const createNewSpotPost = asyncHandler(async (req, res) => {
   if (!req.spotOwner || !req.spotOwner.id) {
@@ -437,3 +440,170 @@ export const fetchSpotLikes = asyncHandler(async (req, res) => {
   });
 });
 
+
+const getAccount = async (id) => {
+  let account = await User.findById(id).select("_id");
+  if (account) {
+    return {
+      account,
+      model: "User",
+    };
+  }
+
+  account = await SpotOwner.findById(id).select("_id");
+
+  if (account) {
+    return {
+      account,
+      model: "SpotOwner",
+    };
+  }
+
+  return null;
+};
+
+export const fetchFollowers = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ValidationError("Invalid account id.");
+  }
+
+  const result = await getAccount(id);
+
+  if (!result) {
+    throw new NotFoundError("Account not found.");
+  }
+
+  const { model } = result;
+
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const skip = (page - 1) * limit;
+
+  const [followers, total] = await Promise.all([
+    Follow.find({
+      following: id,
+      followingModel: model,
+    })
+      .populate({
+        path: "follower",
+        select:
+          "username firstname lastname profilePhoto bio followersCount followingCount",
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    Follow.countDocuments({
+      following: id,
+      followingModel: model,
+    }),
+  ]);
+
+  const formattedFollowers = followers
+    .filter((item) => item.follower)
+    .map((item) => ({
+      _id: item.follower._id,
+      accountType: item.followerModel,
+      username: item.follower.username,
+      firstname: item.follower.firstname || null,
+      lastname: item.follower.lastname || null,
+      profilePhoto: item.follower.profilePhoto || "",
+      bio: item.follower.bio || "",
+      isVerified: item.follower.isVerified || false,
+      followersCount: item.follower.followersCount || 0,
+      followingCount: item.follower.followingCount || 0,
+      followedAt: item.createdAt,
+    }));
+
+  return res.status(200).json({
+    success: true,
+    message: "Followers retrieved successfully.",
+    data: {
+      followers: formattedFollowers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    },
+  });
+});
+
+export const fetchFollowing = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ValidationError("Invalid account id.");
+  }
+
+  const result = await getAccount(id);
+
+  if (!result) {
+    throw new NotFoundError("Account not found.");
+  }
+
+  const { model } = result;
+
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const skip = (page - 1) * limit;
+
+  const [following, total] = await Promise.all([
+    Follow.find({
+      follower: id,
+      followerModel: model,
+    })
+      .populate({
+        path: "following",
+        select:
+          "username firstname lastname profilePhoto bio followersCount followingCount",
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    Follow.countDocuments({
+      follower: id,
+      followerModel: model,
+    }),
+  ]);
+
+  const formattedFollowing = following
+    .filter((item) => item.following)
+    .map((item) => ({
+      _id: item.following._id,
+      accountType: item.followingModel,
+      username: item.following.username,
+      firstname: item.following.firstname || null,
+      lastname: item.following.lastname || null,
+      profilePhoto: item.following.profilePhoto || "",
+      bio: item.following.bio || "",
+      isVerified: item.following.isVerified || false,
+      followersCount: item.following.followersCount || 0,
+      followingCount: item.following.followingCount || 0,
+      followedAt: item.createdAt,
+    }));
+
+  return res.status(200).json({
+    success: true,
+    message: "Following retrieved successfully.",
+    data: {
+      following: formattedFollowing,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    },
+  });
+});
