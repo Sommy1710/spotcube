@@ -100,67 +100,6 @@ SpotLikeSchema.index(
 
 export const SpotLike = model("SpotLike", SpotLikeSchema);
 
-const SpotCommentSchema = new Schema(
-  {
-    spotPost: {
-      type: Schema.Types.ObjectId,
-      ref: "SpotPost",
-      required: true,
-    },
-
-    author: {
-      type: Schema.Types.ObjectId,
-      required: true,
-    },
-
-    authorModel: {
-      type: String,
-      enum: ["User", "SpotOwner"],
-      required: true,
-    },
-
-    username: {
-      type: String,
-      required: true,
-    },
-
-    comment: {
-      type: String,
-      required: true,
-      maxlength: 1000,
-    },
-
-    likes: [
-      {
-        userId: {
-          type: Schema.Types.ObjectId,
-          required: true,
-        },
-        userType: {
-          type: String,
-          enum: ["User", "SpotOwner"],
-          required: true,
-        },
-      },
-    ],
-
-    likeCount: {
-      type: Number,
-      default: 0,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-SpotCommentSchema.index({
-  spotPost: 1,
-  createdAt: -1,
-});
-
-export const SpotComment = model("SpotComment", SpotCommentSchema);
-
 /*const ReportSpotPostSchema = new Schema(
   {
     spotPost: {
