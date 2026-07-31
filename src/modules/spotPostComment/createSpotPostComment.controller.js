@@ -108,3 +108,64 @@ if (req.user?.role === "spotOwner") {
         },
     });
 });
+
+export const deleteSpotComment = asyncHandler(async (req, res) => {
+    const {id} = req.params;
+
+    //authentication
+    if (!req.user && !req.spotOwner) {
+        throw new UnauthenticatedError("Authentication required.");
+    }
+
+    //find the comment
+    const comment = await SpotComment.findById(id);
+
+    if (!comment) {
+        throw new NotFoundError("Comment not found.");
+    }
+
+    //determine authenticated account
+    let accountId;
+    let accountModel;
+
+    if (req.user?.role === "spotOwner") {
+        accountId = req.user.id;
+        accountModel = "SpotOwner";
+    } else if (req.user) {
+        accountId = req.user.id;
+        accountModel = "User";
+    } else {
+        accountId = req.spotOwner.id;
+        accountModel = "SpotOwner";
+    }
+
+    //ensure only the comment owner can delete it 
+    if (
+        comment.author.toString() !== accountId || 
+        comment.authorModel !== accountModel
+    ) {
+        throw new UnauthenticatedError(
+            "You are not authorized to delete this comment."
+        );
+    }
+
+    //delete the comment
+    await SpotComment.findByIdAndDelete(id);
+    //decrement the comment count
+    await SpotPost.updateOne(
+        {
+            _id: comment.spotPost,
+            commentCount: {$gt: 0},
+        },
+        {
+            $inc: {
+                commentCount: -1,
+            }
+        }
+    );
+
+    return res.status(200).json({
+        success: true,
+        message: "Comment deleted successfully.",
+    });
+});
