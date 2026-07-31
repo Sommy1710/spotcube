@@ -13,6 +13,7 @@ import { spotOwnerRouter } from '../modules/spotOwner/spotOwner.routes.js';
 import {spotPostRouter} from '../modules/spotPost/spotPost.routes.js';
 import {favouritesRouter} from '../modules/favourites/favourites.routes.js';
 import { spotPostCommentRouter } from '../modules/spotPostComment/spotPostComment.routes.js';
+import {spotCommentLikeRouter} from '../modules/spotPostCommentLike/spotPostCommentLike.routes.js';
 import cookieParser  from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from '../docs/swagger.js';
@@ -60,6 +61,7 @@ app.use('/api/spotOwner', spotOwnerRouter);
 app.use('/api/spotPost', spotPostRouter);
 app.use('/api/favourites', favouritesRouter);
 app.use('/api/spotPostComment', spotPostCommentRouter);
+app.use('/api/spotPostCommentLike', spotCommentLikeRouter);
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
