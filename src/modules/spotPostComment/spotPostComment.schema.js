@@ -33,7 +33,12 @@ const SpotCommentSchema = new Schema({
   commentLikeCount: {
     type: Number,
     default: 0,
-  }
+  },
+
+  replyCount: {
+    type: Number,
+    default: 0,
+  },
 }, {
   timestamps: true,
 });
