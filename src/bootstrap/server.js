@@ -16,6 +16,7 @@ import { spotPostCommentRouter } from '../modules/spotPostComment/spotPostCommen
 import {spotCommentLikeRouter} from '../modules/spotPostCommentLike/spotPostCommentLike.routes.js';
 import {spotCommentReplyRouter} from '../modules/spotcommentReply/spotCommentReply.routes.js';
 import {spotCommentReplyLikeRouter} from '../modules/spotPostCommentReplyLike/spotPostCommentReplyLike.routes.js';
+import {searchRouter} from '../modules/search/search.routes.js'
 import cookieParser  from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from '../docs/swagger.js';
@@ -66,6 +67,7 @@ app.use('/api/spotPostComment', spotPostCommentRouter);
 app.use('/api/spotPostCommentLike', spotCommentLikeRouter);
 app.use('/api/spotCommentReply', spotCommentReplyRouter);
 app.use('/api/spotCommentReplyLike', spotCommentReplyLikeRouter);
+app.use('/api/search', searchRouter);
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

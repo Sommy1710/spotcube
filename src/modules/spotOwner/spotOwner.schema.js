@@ -160,6 +160,10 @@ location: { type: String, required: true },
 
 }, {timestamps: true});
 
+SpotOwnerSchema.index({
+    username: "text",
+});
+
 SpotOwnerSchema.pre('save', async function()
 {
     if (this.isModified('password'))

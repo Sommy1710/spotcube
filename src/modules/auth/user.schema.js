@@ -184,6 +184,12 @@ const UserSchema = new Schema({
 
 }, { timestamps: true });
 
+UserSchema.index({
+    firstname: "text",
+    lastname: "text",
+    username: "text",
+});
+
 UserSchema.index({geoLocation: "2dsphere"});
 
 UserSchema.pre('save', async function()
