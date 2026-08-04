@@ -6,7 +6,7 @@ import config from '../config/app.config.js';
 const swaggerDefinition = {
     openapi: '3.0.0',
     info: {
-        title: 'Hometrace API',
+        title: 'Spotcube API',
         version: '1.0.0',
         description: 'Dynamic Swagger from Mongoose schema',
     },
