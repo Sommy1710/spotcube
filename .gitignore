@@ -1,2 +1,13 @@
 .env
 node_modules
+
+# macOS
+.DS_Store
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
