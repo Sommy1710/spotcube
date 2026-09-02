@@ -72,7 +72,8 @@ final appRouter = GoRouter(
             state.uri.queryParameters['role'] == 'owner'
                 ? UserRole.owner
                 : UserRole.customer;
-        return OtpScreen(email: email, role: role);
+        final isPasswordReset = state.uri.queryParameters['mode'] == 'reset';
+        return OtpScreen(email: email, role: role, isPasswordReset: isPasswordReset);
       },
     ),
     GoRoute(

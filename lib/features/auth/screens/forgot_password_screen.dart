@@ -39,11 +39,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     try {
       await ref
           .read(authRepositoryProvider)
-          .requestPasswordReset(email: _emailController.text.trim());
+          .requestPasswordReset(role: widget.role, email: _emailController.text.trim());
       if (mounted) {
         context.push(
           '${AppRoutes.otp}?email=${Uri.encodeComponent(_emailController.text.trim())}'
-          '&role=${widget.role.name}',
+          '&role=${widget.role.name}&mode=reset',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     } finally {

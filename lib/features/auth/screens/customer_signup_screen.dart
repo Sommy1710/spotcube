@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/nigerian_locations.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/pill_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/role_badge.dart';
@@ -24,16 +26,23 @@ class CustomerSignupScreen extends ConsumerStatefulWidget {
 
 class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _locationController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  String? _selectedState;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
+    _locationController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -41,18 +50,34 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
 
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedState == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a state')));
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       await ref
           .read(authRepositoryProvider)
           .signUpCustomer(
-            name: _nameController.text.trim(),
+            firstname: _firstNameController.text.trim(),
+            lastname: _lastNameController.text.trim(),
+            username: _usernameController.text.trim(),
             email: _emailController.text.trim(),
             password: _passwordController.text,
+            state: _selectedState!,
+            location: _locationController.text.trim(),
           );
       if (mounted) {
         context.push(
           '${AppRoutes.otp}?email=${Uri.encodeComponent(_emailController.text.trim())}',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     } finally {
@@ -89,14 +114,37 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
                 ),
                 const SizedBox(height: 24),
                 PillTextField(
-                  hintText: 'Enter your full name',
-                  controller: _nameController,
+                  hintText: 'Enter your first name',
+                  controller: _firstNameController,
                   leadingIcon: Icons.person_outline,
                   validator:
                       (value) =>
                           (value == null || value.trim().isEmpty)
-                              ? 'Name is required'
+                              ? 'First name is required'
                               : null,
+                ),
+                const SizedBox(height: 16),
+                PillTextField(
+                  hintText: 'Enter your last name',
+                  controller: _lastNameController,
+                  leadingIcon: Icons.person_outline,
+                  validator:
+                      (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? 'Last name is required'
+                              : null,
+                ),
+                const SizedBox(height: 16),
+                PillTextField(
+                  hintText: 'Choose a username',
+                  controller: _usernameController,
+                  leadingIcon: Icons.alternate_email,
+                  validator: (value) {
+                    if (value == null || value.trim().length < 3) {
+                      return 'Username must be at least 3 characters';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 PillTextField(
@@ -111,6 +159,32 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
                     if (!value.contains('@')) return 'Enter a valid email';
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('State', style: Theme.of(context).textTheme.bodyLarge),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedState,
+                  decoration: const InputDecoration(hintText: 'Select your state'),
+                  icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
+                  items: nigerianStates
+                      .map((state) => DropdownMenuItem(value: state, child: Text(state)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedState = value),
+                ),
+                const SizedBox(height: 16),
+                PillTextField(
+                  hintText: 'Enter your city / area',
+                  controller: _locationController,
+                  leadingIcon: Icons.location_on_outlined,
+                  validator:
+                      (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? 'Location is required'
+                              : null,
                 ),
                 const SizedBox(height: 16),
                 PillTextField(

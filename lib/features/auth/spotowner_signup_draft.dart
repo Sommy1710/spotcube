@@ -3,12 +3,18 @@
 class SpotOwnerSignupDraft {
   const SpotOwnerSignupDraft({
     required this.spotName,
+    required this.email,
+    required this.state,
     required this.location,
     required this.address,
     required this.password,
   });
 
   final String spotName;
+  final String email;
+
+  /// Nigerian state, required by the backend's `CreateSpotOwnerRequest`.
+  final String state;
   final String location;
   final String address;
   final String password;

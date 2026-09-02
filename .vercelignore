@@ -1,0 +1,14 @@
+android
+ios
+linux
+windows
+macos
+src
+node_modules
+.dart_tool
+build
+test
+tests
+.qodo
+.env
+.env.example
