@@ -263,7 +263,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   }
 
   void _logout(BuildContext context, WidgetRef ref) {
-    final role = ref.read(currentUserProvider)?.role;
+    final role = ref.read(currentUserProvider)?.role ?? UserRole.customer;
+    ref.read(authRepositoryProvider).logout(role: role);
     ref.read(currentUserProvider.notifier).state = null;
     context.go(
       role == UserRole.owner

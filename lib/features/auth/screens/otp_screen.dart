@@ -7,8 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/pill_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
-import '../../../core/widgets/terms_footer.dart';
 import '../../../data/models/app_user.dart';
 import '../../../data/repositories/providers.dart';
 
@@ -17,6 +17,7 @@ class OtpScreen extends ConsumerStatefulWidget {
     super.key,
     required this.email,
     this.role = UserRole.customer,
+    this.isPasswordReset = false,
   });
 
   final String email;
@@ -24,12 +25,18 @@ class OtpScreen extends ConsumerStatefulWidget {
   /// Which login screen to return to once the code is verified.
   final UserRole role;
 
+  /// True when this screen was reached from "Forgot your password?" — the
+  /// backend confirms that OTP and sets a new password in one call
+  /// (`AuthRepository.resetPassword`), rather than the plain email-verify
+  /// call used right after signup (`AuthRepository.verifyOtp`).
+  final bool isPasswordReset;
+
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
 
 class _OtpScreenState extends ConsumerState<OtpScreen> {
-  static const _codeLength = 4;
+  static const _codeLength = 5;
   final List<TextEditingController> _controllers = List.generate(
     _codeLength,
     (_) => TextEditingController(),
@@ -38,6 +45,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     _codeLength,
     (_) => FocusNode(),
   );
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   Timer? _timer;
   int _secondsLeft = 299;
@@ -70,16 +79,45 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Future<void> _handleContinue() async {
     final otp = _controllers.map((c) => c.text).join();
     if (otp.length != _codeLength) return;
+    if (widget.isPasswordReset) {
+      if (_newPasswordController.text.length < 6) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password must be at least 6 characters')),
+        );
+        return;
+      }
+      if (_newPasswordController.text != _confirmPasswordController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Passwords do not match')),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
     try {
-      await ref
-          .read(authRepositoryProvider)
-          .verifyOtp(email: widget.email, otp: otp);
+      final repo = ref.read(authRepositoryProvider);
+      if (widget.isPasswordReset) {
+        await repo.resetPassword(
+          role: widget.role,
+          email: widget.email,
+          otp: otp,
+          newPassword: _newPasswordController.text,
+        );
+      } else {
+        await repo.verifyOtp(role: widget.role, email: widget.email, otp: otp);
+      }
       if (mounted) {
         context.go(
           widget.role == UserRole.owner
               ? AppRoutes.spotOwnerLogin
               : AppRoutes.customerLogin,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     } finally {
@@ -96,6 +134,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     for (final f in _focusNodes) {
       f.dispose();
     }
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -103,13 +143,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
               const SizedBox(height: 40),
               Text(
-                'Verify Your Email',
+                widget.isPasswordReset ? 'Reset Your Password' : 'Verify Your Email',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
@@ -158,7 +198,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(_codeLength, (index) {
                   return SizedBox(
-                    width: 64,
+                    width: 56,
                     height: 56,
                     child: TextField(
                       controller: _controllers[index],
@@ -183,17 +223,39 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   );
                 }),
               ),
+              if (widget.isPasswordReset) ...[
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('New password', style: Theme.of(context).textTheme.bodyLarge),
+                ),
+                const SizedBox(height: 8),
+                PillTextField(
+                  hintText: 'Enter your new password',
+                  controller: _newPasswordController,
+                  leadingIcon: Icons.lock_outline,
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Confirm password', style: Theme.of(context).textTheme.bodyLarge),
+                ),
+                const SizedBox(height: 8),
+                PillTextField(
+                  hintText: 'Confirm your new password',
+                  controller: _confirmPasswordController,
+                  leadingIcon: Icons.lock_outline,
+                  obscureText: true,
+                ),
+              ],
               const SizedBox(height: 24),
               PrimaryButton(
                 label: 'Continue',
                 isLoading: _isLoading,
                 onPressed: _handleContinue,
               ),
-              const Spacer(),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 24),
-                child: TermsFooter(),
-              ),
+              const SizedBox(height: 40),
             ],
           ),
         ),

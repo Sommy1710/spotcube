@@ -5,20 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/nigerian_locations.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/pill_text_field.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../data/repositories/providers.dart';
 import '../spotowner_signup_draft.dart';
-
-const _hearAboutUsOptions = [
-  'Social media',
-  'Friend or family',
-  'Search engine',
-  'Advertisement',
-  'Other',
-];
 
 class SpotOwnerSignupStep2Screen extends ConsumerStatefulWidget {
   const SpotOwnerSignupStep2Screen({super.key});
@@ -60,12 +53,27 @@ class _SpotOwnerSignupStep2ScreenState extends ConsumerState<SpotOwnerSignupStep
     setState(() => _isLoading = true);
     try {
       await ref.read(authRepositoryProvider).signUpOwner(
-            spotName: draft.spotName,
-            location: draft.location,
-            address: draft.address,
+            username: draft.spotName,
+            email: draft.email,
             password: draft.password,
+            state: draft.state,
+            location: '${draft.address}, ${draft.location}',
+            bio: _bioController.text,
+            heardAboutUs: _hearAboutUs,
+            referralCode: _referralController.text,
+            profilePhoto: _profileImage,
           );
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) {
+        context.push(
+          '${AppRoutes.otp}?email=${Uri.encodeComponent(draft.email)}&role=owner',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -153,7 +161,7 @@ class _SpotOwnerSignupStep2ScreenState extends ConsumerState<SpotOwnerSignupStep
               DropdownButtonFormField<String>(
                 value: _hearAboutUs,
                 decoration: const InputDecoration(hintText: 'Select an option'),
-                items: _hearAboutUsOptions
+                items: heardAboutUsOptions
                     .map((option) => DropdownMenuItem(value: option, child: Text(option)))
                     .toList(),
                 onChanged: (value) => setState(() => _hearAboutUs = value),

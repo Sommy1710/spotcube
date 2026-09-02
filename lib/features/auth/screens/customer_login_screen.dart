@@ -42,11 +42,18 @@ class _CustomerLoginScreenState extends ConsumerState<CustomerLoginScreen> {
       final user = await ref
           .read(authRepositoryProvider)
           .login(
+            role: UserRole.customer,
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
       ref.read(currentUserProvider.notifier).state = user;
       if (mounted) context.go(AppRoutes.home);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

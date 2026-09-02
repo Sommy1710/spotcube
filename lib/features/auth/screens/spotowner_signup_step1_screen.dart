@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/nigerian_locations.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/pill_text_field.dart';
@@ -33,14 +34,17 @@ class _SpotOwnerSignupStep1ScreenState
     extends State<SpotOwnerSignupStep1Screen> {
   final _formKey = GlobalKey<FormState>();
   final _spotNameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   String? _selectedLocation;
+  String? _selectedState;
 
   @override
   void dispose() {
     _spotNameController.dispose();
+    _emailController.dispose();
     _addressController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -55,10 +59,18 @@ class _SpotOwnerSignupStep1ScreenState
       ).showSnackBar(const SnackBar(content: Text('Please select a location')));
       return;
     }
+    if (_selectedState == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a state')));
+      return;
+    }
     context.push(
       AppRoutes.spotOwnerSignupStep2,
       extra: SpotOwnerSignupDraft(
         spotName: _spotNameController.text.trim(),
+        email: _emailController.text.trim(),
+        state: _selectedState!,
         location: _selectedLocation!,
         address: _addressController.text.trim(),
         password: _passwordController.text,
@@ -102,6 +114,41 @@ class _SpotOwnerSignupStep1ScreenState
                           (value == null || value.trim().isEmpty)
                               ? 'Spot name is required'
                               : null,
+                ),
+                const SizedBox(height: 16),
+                PillTextField(
+                  hintText: 'Enter your email',
+                  controller: _emailController,
+                  leadingIcon: Icons.mail_outline,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Email is required';
+                    }
+                    if (!value.contains('@')) return 'Enter a valid email';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'State',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedState,
+                  decoration: const InputDecoration(hintText: 'Select your state'),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: AppColors.textMuted,
+                  ),
+                  items: nigerianStates
+                      .map((state) => DropdownMenuItem(value: state, child: Text(state)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedState = value),
                 ),
                 const SizedBox(height: 16),
                 Align(
