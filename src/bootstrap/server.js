@@ -30,24 +30,27 @@ const app = express();
 const server = createServer(app);
 
 export const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+    cors: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'https://spotcube.vercel.app'
+        
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true
 });
 
 //app.use(cors());
-const allowedOrigins = [
-    "http://localhost:5173",
-    "https://spotcube.vercel.app",
-];
-
-app.use(
-    cors({
-        origin: allowedOrigins,
-        credentials: true,
-    })
-);
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://spotcube.vercel.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(compression());
 app.use(helmet());
 app.use(express.json());
