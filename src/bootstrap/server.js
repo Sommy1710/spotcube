@@ -36,20 +36,32 @@ export const io = new Server(server, {
     }
 });
 
-app.use(cors());
+//app.use(cors());
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://spotcube.vercel.app",
+];
+
+app.use(
+    cors({
+        origin: allowedOrigins,
+        credentials: true,
+    })
+);
 app.use(compression());
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 app.use(logger());
-app.use(
+app.use(cookieParser());
+/*app.use(
     cookieParser({
         httpOnly: true,
         secure: config.environment === 'production',
         sameSite: 'strict',
         maxAge: getSecondsFromNow(config.jwt.expiration)
     })
-)
+)*/
 
 app.get('/health', (req, res) => {
     res.status(200).json({
