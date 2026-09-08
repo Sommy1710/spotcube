@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/auth_token_store.dart';
 import '../models/app_user.dart';
 
 /// Contract the UI codes against. [RemoteAuthRepository] backs it against
@@ -72,12 +73,23 @@ abstract class AuthRepository {
 }
 
 class RemoteAuthRepository implements AuthRepository {
-  RemoteAuthRepository(this._dio);
+  RemoteAuthRepository(this._dio, this._tokenStore);
 
   final Dio _dio;
+  final AuthTokenStore _tokenStore;
 
   String _base(UserRole role) =>
       role == UserRole.owner ? '/spotOwner' : '/auth';
+
+  /// Runs [request], converting any [DioException] into the readable
+  /// [Exception] every screen's catch block expects.
+  Future<T> _guard<T>(Future<T> Function() request) async {
+    try {
+      return await request();
+    } on DioException catch (e) {
+      throw apiErrorToException(e);
+    }
+  }
 
   @override
   Future<AppUser> login({
@@ -86,14 +98,26 @@ class RemoteAuthRepository implements AuthRepository {
     required String password,
   }) async {
     final base = _base(role);
+    // Clear any token from a previous session first — dualAuthMiddleware
+    // tries the Bearer token before falling back to the cookie, so a stale
+    // token here would silently authenticate the wrong account on the
+    // fetch-profile call below.
+    _tokenStore.clear();
     try {
-      await _dio.post(
+      final loginResp = await _dio.post(
         '$base/login',
         data: {'email': email, 'password': password},
       );
 
-      // The login response only sets a cookie; fetch who that cookie
-      // authenticates as, then the full profile for display fields.
+      // Spot owner login still sets an httpOnly cookie (carried
+      // automatically by CookieManager). Customer login instead returns the
+      // JWT in the body — store it so the interceptor can attach it as
+      // Authorization: Bearer on the calls below and afterwards.
+      if (role == UserRole.customer) {
+        final token = (loginResp.data['data'] as Map?)?['token'] as String?;
+        if (token != null) _tokenStore.set(token);
+      }
+
       final whoAmI = await _dio.get('$base/user');
       final account =
           (whoAmI.data['data'][role == UserRole.owner ? 'spotOwner' : 'user']
@@ -105,6 +129,7 @@ class RemoteAuthRepository implements AuthRepository {
 
       return AppUser.fromProfileJson(profile, role: role, email: email);
     } on DioException catch (e) {
+      _tokenStore.clear();
       throw apiErrorToException(e);
     }
   }
@@ -120,9 +145,9 @@ class RemoteAuthRepository implements AuthRepository {
     required String location,
     String? bio,
     String? referralCode,
-  }) async {
-    try {
-      await _dio.post(
+  }) {
+    return _guard(
+      () => _dio.post(
         '/auth/register',
         data: {
           'firstname': firstname,
@@ -136,10 +161,8 @@ class RemoteAuthRepository implements AuthRepository {
           if (referralCode != null && referralCode.trim().isNotEmpty)
             'referralCode': referralCode.trim(),
         },
-      );
-    } on DioException catch (e) {
-      throw apiErrorToException(e);
-    }
+      ),
+    );
   }
 
   @override
@@ -154,37 +177,28 @@ class RemoteAuthRepository implements AuthRepository {
     String? referralCode,
     File? profilePhoto,
   }) async {
-    try {
-      final form = FormData.fromMap({
-        'username': username,
-        'email': email,
-        'password': password,
-        'state': state,
-        'location': location,
-        if (bio != null && bio.trim().isNotEmpty) 'bio': bio.trim(),
-        if (heardAboutUs != null && heardAboutUs.trim().isNotEmpty)
-          'heardAboutUs': heardAboutUs.trim(),
-        if (referralCode != null && referralCode.trim().isNotEmpty)
-          'referralCode': referralCode.trim(),
-        if (profilePhoto != null)
-          'profilePhoto': await MultipartFile.fromFile(profilePhoto.path),
-      });
-      await _dio.post('/spotOwner/register', data: form);
-    } on DioException catch (e) {
-      throw apiErrorToException(e);
-    }
+    final form = FormData.fromMap({
+      'username': username,
+      'email': email,
+      'password': password,
+      'state': state,
+      'location': location,
+      if (bio != null && bio.trim().isNotEmpty) 'bio': bio.trim(),
+      if (heardAboutUs != null && heardAboutUs.trim().isNotEmpty)
+        'heardAboutUs': heardAboutUs.trim(),
+      if (referralCode != null && referralCode.trim().isNotEmpty)
+        'referralCode': referralCode.trim(),
+      if (profilePhoto != null)
+        'profilePhoto': await MultipartFile.fromFile(profilePhoto.path),
+    });
+    return _guard(() => _dio.post('/spotOwner/register', data: form));
   }
 
   @override
-  Future<void> requestPasswordReset({
-    required UserRole role,
-    required String email,
-  }) async {
-    try {
-      await _dio.post('${_base(role)}/forgot-password', data: {'email': email});
-    } on DioException catch (e) {
-      throw apiErrorToException(e);
-    }
+  Future<void> requestPasswordReset({required UserRole role, required String email}) {
+    return _guard(
+      () => _dio.post('${_base(role)}/forgot-password', data: {'email': email}),
+    );
   }
 
   @override
@@ -192,12 +206,10 @@ class RemoteAuthRepository implements AuthRepository {
     required UserRole role,
     required String email,
     required String otp,
-  }) async {
-    try {
-      await _dio.post('${_base(role)}/verify', data: {'email': email, 'otp': otp});
-    } on DioException catch (e) {
-      throw apiErrorToException(e);
-    }
+  }) {
+    return _guard(
+      () => _dio.post('${_base(role)}/verify', data: {'email': email, 'otp': otp}),
+    );
   }
 
   @override
@@ -206,15 +218,13 @@ class RemoteAuthRepository implements AuthRepository {
     required String email,
     required String otp,
     required String newPassword,
-  }) async {
-    try {
-      await _dio.post(
+  }) {
+    return _guard(
+      () => _dio.post(
         '${_base(role)}/reset-password',
         data: {'email': email, 'otp': otp, 'newPassword': newPassword},
-      );
-    } on DioException catch (e) {
-      throw apiErrorToException(e);
-    }
+      ),
+    );
   }
 
   @override
@@ -224,6 +234,8 @@ class RemoteAuthRepository implements AuthRepository {
     } on DioException {
       // Local session state is cleared regardless; a failed server-side
       // logout isn't worth blocking the user over.
+    } finally {
+      _tokenStore.clear();
     }
   }
 }
