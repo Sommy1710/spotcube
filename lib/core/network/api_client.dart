@@ -43,7 +43,14 @@ Dio createApiClient(AuthTokenStore tokenStore) {
       },
     ),
   );
-  dio.interceptors.add(CookieManager(CookieJar()));
+  // dio_cookie_manager explicitly doesn't support web (its own source
+  // asserts `!_kIsWeb`) — on web, `Cookie` is a forbidden header no script
+  // can set, so this would just fail silently in release builds. The
+  // browser's own cookie jar already carries the owner-login cookie
+  // automatically once `enableCrossOriginCookies` turns on `withCredentials`.
+  if (!kIsWeb) {
+    dio.interceptors.add(CookieManager(CookieJar()));
+  }
   enableCrossOriginCookies(dio);
   if (kDebugMode) {
     dio.interceptors.add(
