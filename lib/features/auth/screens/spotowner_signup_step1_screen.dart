@@ -11,17 +11,6 @@ import '../../../core/widgets/spotcube_logo.dart';
 import '../../../core/widgets/terms_footer.dart';
 import '../spotowner_signup_draft.dart';
 
-/// Placeholder list until the backend exposes a real locations endpoint
-/// (or this is swapped for a Places-style autocomplete).
-const _lagosAreas = [
-  'Ikeja',
-  'Lekki',
-  'Victoria Island',
-  'Yaba',
-  'Surulere',
-  'Ikoyi',
-];
-
 class SpotOwnerSignupStep1Screen extends StatefulWidget {
   const SpotOwnerSignupStep1Screen({super.key});
 
@@ -35,16 +24,17 @@ class _SpotOwnerSignupStep1ScreenState
   final _formKey = GlobalKey<FormState>();
   final _spotNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _locationController = TextEditingController();
   final _addressController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String? _selectedLocation;
   String? _selectedState;
 
   @override
   void dispose() {
     _spotNameController.dispose();
     _emailController.dispose();
+    _locationController.dispose();
     _addressController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -53,12 +43,6 @@ class _SpotOwnerSignupStep1ScreenState
 
   void _handleContinue() {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedLocation == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select a location')));
-      return;
-    }
     if (_selectedState == null) {
       ScaffoldMessenger.of(
         context,
@@ -71,7 +55,7 @@ class _SpotOwnerSignupStep1ScreenState
         spotName: _spotNameController.text.trim(),
         email: _emailController.text.trim(),
         state: _selectedState!,
-        location: _selectedLocation!,
+        location: _locationController.text.trim(),
         address: _addressController.text.trim(),
         password: _passwordController.text,
       ),
@@ -151,34 +135,15 @@ class _SpotOwnerSignupStep1ScreenState
                   onChanged: (value) => setState(() => _selectedState = value),
                 ),
                 const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Location',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _selectedLocation,
-                  decoration: const InputDecoration(
-                    hintText: 'Enter your Spot Location',
-                  ),
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: AppColors.textMuted,
-                  ),
-                  items:
-                      _lagosAreas
-                          .map(
-                            (area) => DropdownMenuItem(
-                              value: area,
-                              child: Text(area),
-                            ),
-                          )
-                          .toList(),
-                  onChanged:
-                      (value) => setState(() => _selectedLocation = value),
+                PillTextField(
+                  hintText: 'Enter your city / area',
+                  controller: _locationController,
+                  leadingIcon: Icons.location_on_outlined,
+                  validator:
+                      (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? 'Location is required'
+                              : null,
                 ),
                 const SizedBox(height: 16),
                 Align(
