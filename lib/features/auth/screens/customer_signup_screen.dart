@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/countries.dart';
 import '../../../core/constants/nigerian_locations.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -33,7 +37,12 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
   final _locationController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _referralController = TextEditingController();
+  final _picker = ImagePicker();
+  String? _selectedCountry = defaultCountry;
   String? _selectedState;
+  String? _hearAboutUs;
+  File? _profileImage;
   bool _isLoading = false;
 
   @override
@@ -45,11 +54,25 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
     _locationController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _referralController.dispose();
     super.dispose();
   }
 
+  Future<void> _pickProfileImage() async {
+    final image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) setState(() => _profileImage = File(image.path));
+  }
+
+  bool get _isSupportedCountry => _selectedCountry == defaultCountry;
+
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_isSupportedCountry) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Signup is currently only available for $defaultCountry')),
+      );
+      return;
+    }
     if (_selectedState == null) {
       ScaffoldMessenger.of(
         context,
@@ -68,6 +91,10 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
             password: _passwordController.text,
             state: _selectedState!,
             location: _locationController.text.trim(),
+            referralCode: _referralController.text,
+            heardAboutUs: _hearAboutUs,
+            country: _selectedCountry,
+            profilePhoto: _profileImage,
           );
       if (mounted) {
         context.push(
@@ -112,6 +139,26 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
                   'Create your Spot account',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: _pickProfileImage,
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.textPrimary, width: 1.5),
+                      image: _profileImage != null
+                          ? DecorationImage(image: FileImage(_profileImage!), fit: BoxFit.cover)
+                          : null,
+                    ),
+                    child: _profileImage == null
+                        ? const Icon(Icons.person_outline, size: 40, color: AppColors.textPrimary)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text('Upload your profile picture (optional)'),
                 const SizedBox(height: 24),
                 PillTextField(
                   hintText: 'Enter your first name',
@@ -163,18 +210,42 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('State', style: Theme.of(context).textTheme.bodyLarge),
+                  child: Text('Country', style: Theme.of(context).textTheme.bodyLarge),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedState,
-                  decoration: const InputDecoration(hintText: 'Select your state'),
+                  value: _selectedCountry,
+                  decoration: const InputDecoration(hintText: 'Select your country'),
                   icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
-                  items: nigerianStates
-                      .map((state) => DropdownMenuItem(value: state, child: Text(state)))
+                  items: countries
+                      .map((country) => DropdownMenuItem(value: country, child: Text(country)))
                       .toList(),
-                  onChanged: (value) => setState(() => _selectedState = value),
+                  onChanged: (value) => setState(() {
+                    _selectedCountry = value;
+                    if (!_isSupportedCountry) _selectedState = null;
+                  }),
                 ),
+                const SizedBox(height: 16),
+                if (_isSupportedCountry) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('State', style: Theme.of(context).textTheme.bodyLarge),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _selectedState,
+                    decoration: const InputDecoration(hintText: 'Select your state'),
+                    icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
+                    items: nigerianStates
+                        .map((state) => DropdownMenuItem(value: state, child: Text(state)))
+                        .toList(),
+                    onChanged: (value) => setState(() => _selectedState = value),
+                  ),
+                ] else
+                  Text(
+                    'Signup is currently only available for $defaultCountry.',
+                    style: const TextStyle(color: AppColors.textMuted),
+                  ),
                 const SizedBox(height: 16),
                 PillTextField(
                   hintText: 'Enter your city / area',
@@ -209,6 +280,38 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
                           value != _passwordController.text
                               ? 'Passwords do not match'
                               : null,
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'How did you hear about us? (Optional)',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _hearAboutUs,
+                  decoration: const InputDecoration(hintText: 'Select an option'),
+                  icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
+                  items: heardAboutUsOptions
+                      .map((option) => DropdownMenuItem(value: option, child: Text(option)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _hearAboutUs = value),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Referral code (Optional)',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                PillTextField(
+                  hintText: 'Enter a referral code',
+                  controller: _referralController,
+                  leadingIcon: Icons.card_giftcard_outlined,
                 ),
                 const SizedBox(height: 24),
                 PrimaryButton(

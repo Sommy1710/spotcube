@@ -31,6 +31,9 @@ abstract class AuthRepository {
     required String location,
     String? bio,
     String? referralCode,
+    String? heardAboutUs,
+    String? country,
+    File? profilePhoto,
   });
 
   Future<void> signUpOwner({
@@ -145,24 +148,28 @@ class RemoteAuthRepository implements AuthRepository {
     required String location,
     String? bio,
     String? referralCode,
-  }) {
-    return _guard(
-      () => _dio.post(
-        '/auth/register',
-        data: {
-          'firstname': firstname,
-          'lastname': lastname,
-          'username': username,
-          'email': email,
-          'password': password,
-          'state': state,
-          'location': location,
-          if (bio != null && bio.trim().isNotEmpty) 'bio': bio.trim(),
-          if (referralCode != null && referralCode.trim().isNotEmpty)
-            'referralCode': referralCode.trim(),
-        },
-      ),
-    );
+    String? heardAboutUs,
+    String? country,
+    File? profilePhoto,
+  }) async {
+    final form = FormData.fromMap({
+      'firstname': firstname,
+      'lastname': lastname,
+      'username': username,
+      'email': email,
+      'password': password,
+      'state': state,
+      'location': location,
+      if (bio != null && bio.trim().isNotEmpty) 'bio': bio.trim(),
+      if (referralCode != null && referralCode.trim().isNotEmpty)
+        'referralCode': referralCode.trim(),
+      if (heardAboutUs != null && heardAboutUs.trim().isNotEmpty)
+        'heardAboutUs': heardAboutUs.trim(),
+      if (country != null && country.trim().isNotEmpty) 'country': country.trim(),
+      if (profilePhoto != null)
+        'profilePhoto': await MultipartFile.fromFile(profilePhoto.path),
+    });
+    return _guard(() => _dio.post('/auth/register', data: form));
   }
 
   @override
@@ -262,6 +269,9 @@ class MockAuthRepository implements AuthRepository {
     required String location,
     String? bio,
     String? referralCode,
+    String? heardAboutUs,
+    String? country,
+    File? profilePhoto,
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
   }
