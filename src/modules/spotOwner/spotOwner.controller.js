@@ -232,7 +232,11 @@ export const authenticateSpotOwner = asyncHandler(async(req, res) => {
     });
   }
   const token = await authService.authenticateSpotOwner(value, req);
-  res.cookie("authentication", token);
+  res.cookie("authentication", token, {
+    httpOnly: true,
+    secure: config.environment === 'production',
+    sameSite: config.environment === 'production' ? 'none' : 'lax'
+  });
   return res.status(200).json({success: true, message: "Spot Owner successfully logged in"});
 
 });
@@ -275,7 +279,7 @@ export const logoutSpotOwner = asyncHandler(async (req, res) => {
   res.clearCookie('authentication', {
     httpOnly: true,
     secure: config.environment === 'production',
-    sameSite: 'Strict'
+    sameSite: config.environment === 'production' ? 'none' : 'lax'
   });
 
   return res.status(200).json({ success: true, message: 'Spot Owner successfully logged out' });

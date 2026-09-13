@@ -215,7 +215,11 @@ export const authenticateUser = asyncHandler(async(req, res) => {
     });
   }
   const token = await authService.authenticateUser(value, req);
-  res.cookie("authentication", token);
+  res.cookie("authentication", token, {
+    httpOnly: true,
+    secure: config.environment === 'production',
+    sameSite: config.environment === 'production' ? 'none' : 'lax'
+  });
   return res.status(200).json({success: true, message: "user successfully logged in"});
 
 });
@@ -261,7 +265,7 @@ export const logoutUser = asyncHandler(async (req, res) => {
   res.clearCookie('authentication', {
     httpOnly: true,
     secure: config.environment === 'production',
-    sameSite: 'Strict'
+    sameSite: config.environment === 'production' ? 'none' : 'lax'
   });
 
   return res.status(200).json({ success: true, message: 'User successfully logged out' });
