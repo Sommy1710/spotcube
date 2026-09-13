@@ -1,8 +1,40 @@
-import { SpotOwner } from "../../modules/spotOwner/spotOwner.schema.js";
+
 import { UnauthenticatedError } from "../../lib/error-definitions.js";
 import { verifyAuthenticationToken } from "../providers/jwt.provider.js";
-import { getBearerToken } from "../../lib/util.js";
+
+
 export default function spotOwnerMiddleware(req, res, next) {
+    try {
+        console.log("========== SPOT OWNER MIDDLEWARE ==========");
+
+        console.log("Authorization header:", req.headers.authorization);
+
+        const token = getBearerToken(req);
+
+        console.log("Extracted token:", token);
+        console.log("Token exists:", !!token);
+
+        if (!token) {
+            throw new UnauthenticatedError("No token provided");
+        }
+
+        const decoded = verifyAuthenticationToken(token);
+
+        console.log("Decoded token:", decoded);
+
+        req.spotOwner = decoded;
+
+        console.log("Spot Owner authenticated successfully");
+
+        next();
+
+    } catch (error) {
+        console.error("SPOT OWNER AUTH ERROR:", error);
+
+        throw new UnauthenticatedError("invalid or missing token");
+    }
+}
+/*export default function spotOwnerMiddleware(req, res, next) {
   try {
     const token = getBearerToken(req);
 
@@ -14,7 +46,7 @@ export default function spotOwnerMiddleware(req, res, next) {
   } catch (error) {
     throw new UnauthenticatedError("invalid or missing token");
   }
-}
+}*/
 /*export default async function spotOwnerMiddleware(req, res, next) {
   try {
     const token = req.cookies.authentication;
