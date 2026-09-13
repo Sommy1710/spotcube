@@ -233,7 +233,7 @@ export const authenticateSpotOwner = asyncHandler(async(req, res) => {
   }
   const token = await authService.authenticateSpotOwner(value, req);
   res.cookie("authentication", token);
-  return res.status(200).json({success: true, message: "Spot Owner successfully logged in"});
+  return res.status(200).json({success: true, message: "Spot Owner successfully logged in", data: {token}});
 
 });
 
