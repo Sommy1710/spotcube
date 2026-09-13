@@ -51,6 +51,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Timer? _timer;
   int _secondsLeft = 299;
   bool _isLoading = false;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void initState() {
@@ -234,7 +236,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   hintText: 'Enter your new password',
                   controller: _newPasswordController,
                   leadingIcon: Icons.lock_outline,
-                  obscureText: true,
+                  obscureText: _obscureNewPassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureNewPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: AppColors.textMuted,
+                    ),
+                    onPressed:
+                        () => setState(
+                          () => _obscureNewPassword = !_obscureNewPassword,
+                        ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Align(
@@ -246,7 +260,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   hintText: 'Confirm your new password',
                   controller: _confirmPasswordController,
                   leadingIcon: Icons.lock_outline,
-                  obscureText: true,
+                  obscureText: _obscureConfirmPassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: AppColors.textMuted,
+                    ),
+                    onPressed:
+                        () => setState(
+                          () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                        ),
+                  ),
                 ),
               ],
               const SizedBox(height: 24),

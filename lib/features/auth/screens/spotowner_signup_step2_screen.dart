@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,8 +26,8 @@ class _SpotOwnerSignupStep2ScreenState extends ConsumerState<SpotOwnerSignupStep
   final _referralController = TextEditingController();
   final _picker = ImagePicker();
 
-  File? _profileImage;
-  final List<File> _spotImages = [];
+  XFile? _profileImage;
+  Uint8List? _profileImageBytes;
   String? _hearAboutUs;
   bool _isLoading = false;
 
@@ -40,13 +40,12 @@ class _SpotOwnerSignupStep2ScreenState extends ConsumerState<SpotOwnerSignupStep
 
   Future<void> _pickProfileImage() async {
     final image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) setState(() => _profileImage = File(image.path));
-  }
-
-  Future<void> _pickSpotImage() async {
-    if (_spotImages.length >= 3) return;
-    final image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) setState(() => _spotImages.add(File(image.path)));
+    if (image == null) return;
+    final bytes = await image.readAsBytes();
+    setState(() {
+      _profileImage = image;
+      _profileImageBytes = bytes;
+    });
   }
 
   Future<void> _handleSignUp(SpotOwnerSignupDraft draft) async {
@@ -98,16 +97,16 @@ class _SpotOwnerSignupStep2ScreenState extends ConsumerState<SpotOwnerSignupStep
                     width: 96,
                     height: 96,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
+                      shape: BoxShape.circle,
                       border: Border.all(color: AppColors.textPrimary, width: 1.5),
-                      image: _profileImage != null
+                      image: _profileImageBytes != null
                           ? DecorationImage(
-                              image: FileImage(_profileImage!),
+                              image: MemoryImage(_profileImageBytes!),
                               fit: BoxFit.cover,
                             )
                           : null,
                     ),
-                    child: _profileImage == null
+                    child: _profileImageBytes == null
                         ? const Icon(Icons.person_outline, size: 40, color: AppColors.textPrimary)
                         : null,
                   ),
@@ -115,38 +114,6 @@ class _SpotOwnerSignupStep2ScreenState extends ConsumerState<SpotOwnerSignupStep
               ),
               const SizedBox(height: 8),
               const Center(child: Text('Upload your profile picture')),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Text('Upload your Spot pictures'),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.file_download_outlined, size: 16),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  for (final image in _spotImages) ...[
-                    _SpotImageTile(file: image),
-                    const SizedBox(width: 12),
-                  ],
-                  if (_spotImages.length < 3)
-                    GestureDetector(
-                      onTap: _pickSpotImage,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.fromBorderSide(
-                            BorderSide(color: AppColors.textPrimary),
-                          ),
-                        ),
-                        child: const Icon(Icons.add, size: 18, color: AppColors.textPrimary),
-                      ),
-                    ),
-                ],
-              ),
               const SizedBox(height: 24),
               Text('Bio', style: Theme.of(context).textTheme.bodyLarge),
               const SizedBox(height: 8),
@@ -181,20 +148,6 @@ class _SpotOwnerSignupStep2ScreenState extends ConsumerState<SpotOwnerSignupStep
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SpotImageTile extends StatelessWidget {
-  const _SpotImageTile({required this.file});
-
-  final File file;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.file(file, width: 64, height: 80, fit: BoxFit.cover),
     );
   }
 }

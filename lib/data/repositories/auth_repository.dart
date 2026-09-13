@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 
 import '../../core/network/api_client.dart';
@@ -33,7 +32,7 @@ abstract class AuthRepository {
     String? referralCode,
     String? heardAboutUs,
     String? country,
-    File? profilePhoto,
+    XFile? profilePhoto,
   });
 
   Future<void> signUpOwner({
@@ -45,7 +44,7 @@ abstract class AuthRepository {
     String? bio,
     String? heardAboutUs,
     String? referralCode,
-    File? profilePhoto,
+    XFile? profilePhoto,
   });
 
   Future<void> requestPasswordReset({
@@ -150,7 +149,7 @@ class RemoteAuthRepository implements AuthRepository {
     String? referralCode,
     String? heardAboutUs,
     String? country,
-    File? profilePhoto,
+    XFile? profilePhoto,
   }) async {
     final form = FormData.fromMap({
       'firstname': firstname,
@@ -167,7 +166,10 @@ class RemoteAuthRepository implements AuthRepository {
         'heardAboutUs': heardAboutUs.trim(),
       if (country != null && country.trim().isNotEmpty) 'country': country.trim(),
       if (profilePhoto != null)
-        'profilePhoto': await MultipartFile.fromFile(profilePhoto.path),
+        'profilePhoto': MultipartFile.fromBytes(
+          await profilePhoto.readAsBytes(),
+          filename: profilePhoto.name,
+        ),
     });
     return _guard(() => _dio.post('/auth/register', data: form));
   }
@@ -182,7 +184,7 @@ class RemoteAuthRepository implements AuthRepository {
     String? bio,
     String? heardAboutUs,
     String? referralCode,
-    File? profilePhoto,
+    XFile? profilePhoto,
   }) async {
     final form = FormData.fromMap({
       'username': username,
@@ -196,7 +198,10 @@ class RemoteAuthRepository implements AuthRepository {
       if (referralCode != null && referralCode.trim().isNotEmpty)
         'referralCode': referralCode.trim(),
       if (profilePhoto != null)
-        'profilePhoto': await MultipartFile.fromFile(profilePhoto.path),
+        'profilePhoto': MultipartFile.fromBytes(
+          await profilePhoto.readAsBytes(),
+          filename: profilePhoto.name,
+        ),
     });
     return _guard(() => _dio.post('/spotOwner/register', data: form));
   }
@@ -271,7 +276,7 @@ class MockAuthRepository implements AuthRepository {
     String? referralCode,
     String? heardAboutUs,
     String? country,
-    File? profilePhoto,
+    XFile? profilePhoto,
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
   }
@@ -286,7 +291,7 @@ class MockAuthRepository implements AuthRepository {
     String? bio,
     String? heardAboutUs,
     String? referralCode,
-    File? profilePhoto,
+    XFile? profilePhoto,
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
   }

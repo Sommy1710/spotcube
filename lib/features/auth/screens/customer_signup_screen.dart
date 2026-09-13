@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,7 +42,10 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
   String? _selectedCountry = defaultCountry;
   String? _selectedState;
   String? _hearAboutUs;
-  File? _profileImage;
+  XFile? _profileImage;
+  Uint8List? _profileImageBytes;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
   @override
@@ -60,7 +63,12 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
 
   Future<void> _pickProfileImage() async {
     final image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) setState(() => _profileImage = File(image.path));
+    if (image == null) return;
+    final bytes = await image.readAsBytes();
+    setState(() {
+      _profileImage = image;
+      _profileImageBytes = bytes;
+    });
   }
 
   bool get _isSupportedCountry => _selectedCountry == defaultCountry;
@@ -148,11 +156,14 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: AppColors.textPrimary, width: 1.5),
-                      image: _profileImage != null
-                          ? DecorationImage(image: FileImage(_profileImage!), fit: BoxFit.cover)
+                      image: _profileImageBytes != null
+                          ? DecorationImage(
+                              image: MemoryImage(_profileImageBytes!),
+                              fit: BoxFit.cover,
+                            )
                           : null,
                     ),
-                    child: _profileImage == null
+                    child: _profileImageBytes == null
                         ? const Icon(Icons.person_outline, size: 40, color: AppColors.textPrimary)
                         : null,
                   ),
@@ -262,7 +273,19 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
                   hintText: 'Enter your password',
                   controller: _passwordController,
                   leadingIcon: Icons.lock_outline,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: AppColors.textMuted,
+                    ),
+                    onPressed:
+                        () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                  ),
                   validator:
                       (value) =>
                           (value == null || value.length < 6)
@@ -274,7 +297,19 @@ class _CustomerSignupScreenState extends ConsumerState<CustomerSignupScreen> {
                   hintText: 'Confirm your password',
                   controller: _confirmPasswordController,
                   leadingIcon: Icons.lock_outline,
-                  obscureText: true,
+                  obscureText: _obscureConfirmPassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: AppColors.textMuted,
+                    ),
+                    onPressed:
+                        () => setState(
+                          () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                        ),
+                  ),
                   validator:
                       (value) =>
                           value != _passwordController.text

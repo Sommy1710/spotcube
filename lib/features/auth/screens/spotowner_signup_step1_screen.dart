@@ -29,6 +29,8 @@ class _SpotOwnerSignupStep1ScreenState
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   String? _selectedState;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
@@ -157,10 +159,6 @@ class _SpotOwnerSignupStep1ScreenState
                 PillTextField(
                   hintText: 'Enter your Spot address',
                   controller: _addressController,
-                  suffixIcon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: AppColors.textMuted,
-                  ),
                   validator:
                       (value) =>
                           (value == null || value.trim().isEmpty)
@@ -172,7 +170,19 @@ class _SpotOwnerSignupStep1ScreenState
                   hintText: 'Enter your password',
                   controller: _passwordController,
                   leadingIcon: Icons.lock_outline,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: AppColors.textMuted,
+                    ),
+                    onPressed:
+                        () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                  ),
                   validator:
                       (value) =>
                           (value == null || value.length < 6)
@@ -184,7 +194,19 @@ class _SpotOwnerSignupStep1ScreenState
                   hintText: 'Confirm your password',
                   controller: _confirmPasswordController,
                   leadingIcon: Icons.lock_outline,
-                  obscureText: true,
+                  obscureText: _obscureConfirmPassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: AppColors.textMuted,
+                    ),
+                    onPressed:
+                        () => setState(
+                          () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                        ),
+                  ),
                   validator:
                       (value) =>
                           value != _passwordController.text
