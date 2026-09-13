@@ -1,6 +1,7 @@
 
 import { UnauthenticatedError } from "../../lib/error-definitions.js";
 import { verifyAuthenticationToken } from "../providers/jwt.provider.js";
+import { getBearerToken } from "../../lib/util.js";
 
 
 export default function spotOwnerMiddleware(req, res, next) {
