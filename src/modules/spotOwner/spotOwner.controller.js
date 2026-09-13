@@ -179,62 +179,92 @@ export const verifyEmailOTP = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Email verified successfully.' });
 });
 
-export const authenticateSpotOwner = asyncHandler(async(req, res) => {
+export const authenticateSpotOwner = asyncHandler(async (req, res) => {
   const validator = new Validator();
-  const {value, errors} = validator.validate(AuthSpotOwnerRequest, req.body);
-  if (errors) throw new ValidationError('the request failed with the following errors', errors);
 
-  const spotOwner = await SpotOwner.findOne({email: value.email});
-  if (!spotOwner) {
-    return res.status(404).json({message: 'Spot Owner not found'});
+  const { value, errors } = validator.validate(
+    AuthSpotOwnerRequest,
+    req.body
+  );
+
+  if (errors) {
+    throw new ValidationError(
+      "the request failed with the following errors",
+      errors
+    );
   }
 
-  // check if banned 
+  const spotOwner = await SpotOwner.findOne({
+    email: value.email
+  });
+
+  if (!spotOwner) {
+    return res.status(404).json({
+      message: "Spot Owner not found"
+    });
+  }
+
+  // Check if banned
   if (spotOwner.isBanned) {
     return res.status(403).json({
       success: false,
-      massage: "Your account has been banned.",
+      message: "Your account has been banned.",
       data: {
         bannedAt: spotOwner.bannedAt,
         reason: spotOwner.banReason
       }
     });
   }
+
+  // Check email verification
   if (!spotOwner.isEmailVerified) {
-    //generate new OTP
     const otpCode = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); //10 minutes
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
     spotOwner.emailVerificationCode = otpCode;
     spotOwner.emailCodeExpiry = otpExpiry;
+
     await spotOwner.save();
 
     try {
       await sendEmail({
         to: spotOwner.email,
-        subject: 'Verify your email',
+        subject: "Verify your email",
         html: `
-            <p>Your email is not verified.</p>
-            <p>Your new verification code is: <strong>${otpCode}</strong></p>
-            <p>This code expires in 10 minutes. </p>`
+          <p>Your email is not verified.</p>
+          <p>Your new verification code is:
+            <strong>${otpCode}</strong>
+          </p>
+          <p>This code expires in 10 minutes.</p>
+        `
       });
-      console.log('verification OTP resent');
 
+      console.log("verification OTP resent");
     } catch (err) {
-      console.warn('Failed to send verification email', err.message);
+      console.warn(
+        "Failed to send verification email",
+        err.message
+      );
     }
+
     return res.status(403).json({
-      message: 'Email not verified. A new OTP has been sent to your email.',
+      message: "Email not verified. A new OTP has been sent to your email.",
       data: {
         email: spotOwner.email,
         expiresAt: otpExpiry
       }
     });
   }
-  const token = await authService.authenticateSpotOwner(value, req);
-  res.cookie("authentication", token);
-  return res.status(200).json({success: true, message: "Spot Owner successfully logged in", data: {token}});
 
+  const token = await authService.authenticateSpotOwner(value);
+
+  return res.status(200).json({
+    success: true,
+    message: "Spot Owner successfully logged in",
+    data: {
+      token
+    }
+  });
 });
 
 export const getAuthenticatedSpotOwner = asyncHandler(async(req, res) =>

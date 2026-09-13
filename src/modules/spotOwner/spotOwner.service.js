@@ -21,7 +21,7 @@ export const createSpotOwner = async(payload) =>
 
 export const getSpotOwner = async(id) =>
 {
-    return await getSpotOwner.findById(id);
+    return await SpotOwner.findById(id);
 };
 
 export const getSpotOwnerByEmail = async(email) =>
