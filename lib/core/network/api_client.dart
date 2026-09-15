@@ -16,12 +16,11 @@ const String apiBaseUrl = String.fromEnvironment(
 
 /// Builds the shared Dio client used by every remote repository.
 ///
-/// The backend splits auth transport by role: spot owner login still sets an
-/// httpOnly `authentication` cookie (needs [CookieManager] to carry it on
-/// subsequent requests), while customer login instead returns a JWT in the
-/// response body, expected back as `Authorization: Bearer <token>` — hence
-/// [tokenStore], read on every outgoing request. Neither persists across an
-/// app restart yet.
+/// Both customer and spot owner login return a JWT in the response body,
+/// expected back as `Authorization: Bearer <token>` — hence [tokenStore],
+/// read on every outgoing request. It doesn't persist across an app restart
+/// yet. [CookieManager] is kept around for any remaining cookie-based
+/// endpoints but auth no longer relies on it.
 Dio createApiClient(AuthTokenStore tokenStore) {
   final dio = Dio(
     BaseOptions(
@@ -45,9 +44,9 @@ Dio createApiClient(AuthTokenStore tokenStore) {
   );
   // dio_cookie_manager explicitly doesn't support web (its own source
   // asserts `!_kIsWeb`) — on web, `Cookie` is a forbidden header no script
-  // can set, so this would just fail silently in release builds. The
-  // browser's own cookie jar already carries the owner-login cookie
-  // automatically once `enableCrossOriginCookies` turns on `withCredentials`.
+  // can set, so this would just fail silently in release builds. Auth no
+  // longer depends on cookies for either role, but this stays in case other
+  // endpoints still set them.
   if (!kIsWeb) {
     dio.interceptors.add(CookieManager(CookieJar()));
   }

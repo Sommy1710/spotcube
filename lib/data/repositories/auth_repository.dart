@@ -111,14 +111,11 @@ class RemoteAuthRepository implements AuthRepository {
         data: {'email': email, 'password': password},
       );
 
-      // Spot owner login still sets an httpOnly cookie (carried
-      // automatically by CookieManager). Customer login instead returns the
-      // JWT in the body — store it so the interceptor can attach it as
-      // Authorization: Bearer on the calls below and afterwards.
-      if (role == UserRole.customer) {
-        final token = (loginResp.data['data'] as Map?)?['token'] as String?;
-        if (token != null) _tokenStore.set(token);
-      }
+      // Both roles now return the JWT in the response body — store it so
+      // the interceptor can attach it as Authorization: Bearer on the calls
+      // below and afterwards.
+      final token = (loginResp.data['data'] as Map?)?['token'] as String?;
+      if (token != null) _tokenStore.set(token);
 
       final whoAmI = await _dio.get('$base/user');
       final account =
