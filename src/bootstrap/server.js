@@ -17,10 +17,13 @@ import {spotCommentLikeRouter} from '../modules/spotPostCommentLike/spotPostComm
 import {spotCommentReplyRouter} from '../modules/spotcommentReply/spotCommentReply.routes.js';
 import {spotCommentReplyLikeRouter} from '../modules/spotPostCommentReplyLike/spotPostCommentReplyLike.routes.js';
 import {searchRouter} from '../modules/search/search.routes.js'
+import {postRouter} from '../modules/post/post.routes.js'
+import {notificationsRouter} from '../modules/notifications/notifications.routes.js';
 import cookieParser  from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from '../docs/swagger.js';
 import * as Sentry from '@sentry/node';
+import {WebSocketServer, WebSocket} from "ws";
 import {Server} from 'socket.io';
 
 
@@ -29,17 +32,141 @@ import {Server} from 'socket.io';
 const app = express();
 const server = createServer(app);
 
-export const io = new Server(server, {
-    cors: [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'https://spotcube.vercel.app'
-        
-    ],
-    methods: ['GET', 'POST'],
-    credentials: true
+const wss = new WebSocketServer({
+    server
 });
 
+export const connectedUsers = new Map();
+
+wss.on('connection', (ws, req) => {
+    console.log('websocket client connected');
+
+    try {
+        const cookies = req.headers.cookie;
+        if (!cookies) {
+            ws.close(1008, 'Authentication required.');
+            return;
+        }
+
+        // find authentication cookie
+        const authenticationCookie = cookies
+        .split(';')
+        .find(cookie => 
+            cookie.trim().startsWith('authentication=')
+        );
+        if (!authenticationCookie) {
+            ws.close(1008, 'authentication required.');
+            return;
+        }
+
+        const token = authenticationCookie
+        .split('=')[1];
+
+        //verify jwt
+        const decoded = jwt.verify(
+            token,
+            config.jwt.secret
+        );
+
+        const userId = decoded.id || decoded.userId;
+
+        if (!userId) {
+            ws.close(1008, 'invalid authentication token.');
+            return
+        }
+
+        //store user connection
+        connectedUsers.set(
+            userId.toString(),
+            ws
+        );
+
+        //store user id on socket
+        ws.userId = userId.toString();
+
+        console.log(
+            `User ${ws.userId} connected to notifications`
+        );
+
+        // Tell frontend connection succeeded
+        ws.send(
+            JSON.stringify({
+                type: 'connected',
+                message: 'Notification WebSocket connected successfully.'
+            })
+        );
+    } catch (error) {
+        console.error(
+            'Websocket authentication failed:',
+            error.message
+        );
+        ws.close(
+            1008,
+            'authentication failed'
+        );
+
+        return;
+    }
+
+    ws.on('close', () => {
+
+        if (ws.userId) {
+
+            // Only remove this connection if it is
+            // still the active connection for this user
+            if (
+                connectedUsers.get(ws.userId) === ws
+            ) {
+
+                connectedUsers.delete(ws.userId);
+            }
+
+
+            console.log(
+                `User ${ws.userId} disconnected from notifications`
+            );
+        }
+
+    });
+    ws.on('error', (error) => {
+        console.error(
+            `WebSocket error for user ${ws.userId}:`,
+            error
+        );
+    });
+});
+
+export const sendNotification = (
+    userId,
+    notification
+) => {
+    const userSocket = connectedUsers.get(
+        userId.toString()
+    );
+
+    //user is not currently connected
+    if (!userSocket) {
+        return false;
+    }
+
+    // Socket is not open
+    if (
+        userSocket.readyState !== WebSocket.OPEN
+    ) {
+        return false;
+    }
+
+
+    userSocket.send(
+        JSON.stringify({
+            type: 'notification',
+            data: notification
+        })
+    );
+
+
+    return true;
+}
 //app.use(cors());
 app.use(cors({
   origin: [
@@ -83,6 +210,8 @@ app.use('/api/spotPostCommentLike', spotCommentLikeRouter);
 app.use('/api/spotCommentReply', spotCommentReplyRouter);
 app.use('/api/spotCommentReplyLike', spotCommentReplyLikeRouter);
 app.use('/api/search', searchRouter);
+app.use('/api/posts', postRouter);
+app.use('/api/notifications', notificationsRouter);
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -103,22 +232,6 @@ app.use((req, res, next) => {
     next(new NotFoundError(`the requested route ${req.originalUrl} does not exist on this server`));
 });
 
-// socket.IO logic
-io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
-
-    socket.on("sendMessage", ({senderId, receiverId, message}) => {
-        io.to(receiverId).emit("receiveMessage", {senderId, message});
-    });
-
-    socket.on("join", (userId) => {
-        socket.join(userId);
-    });
-
-    socket.on("disconnect", () => {
-        console.log("User disconnected:", socket.id)
-    });
-});
 
 app.use((req, res, next) => {
     next(new NotFoundError(`the requested route ${req.originalUrl} does  not exist on this server`));

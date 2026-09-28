@@ -19,4 +19,15 @@ export const uploadListingMedia = upload.fields([
   { name: "videos", maxCount: 3 }
 ]);
 
+export const uploadPostMedia = upload.fields([
+  {
+    name: "photos",
+    maxCount: 10,
+  },
+  {
+    name: "videos",
+    maxCount: 1,
+  },
+]);
+
 export default upload;

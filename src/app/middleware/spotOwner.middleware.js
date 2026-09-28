@@ -3,7 +3,68 @@ import { UnauthenticatedError } from "../../lib/error-definitions.js";
 import { verifyAuthenticationToken } from "../providers/jwt.provider.js";
 import { getBearerToken } from "../../lib/util.js";
 
+/*export default function spotOwnerMiddleware(req, res, next) {
+  try {
+    console.log("========== SPOT OWNER MIDDLEWARE ==========");
 
+    console.log(
+      "Authorization header:",
+      req.headers.authorization
+    );
+
+    // 1. Try Bearer token first
+    let token = getBearerToken(req);
+
+    console.log(
+      "Bearer token:",
+      token ? "FOUND" : "NOT FOUND"
+    );
+
+    // 2. If no Bearer token, try cookie
+    if (!token) {
+      token = req.cookies?.authentication;
+
+      console.log(
+        "Cookie token:",
+        token ? "FOUND" : "NOT FOUND"
+      );
+    }
+
+    // 3. No token from either source
+    if (!token) {
+      throw new UnauthenticatedError(
+        "No authentication token provided"
+      );
+    }
+
+    console.log("Token exists:", !!token);
+
+    // 4. Verify JWT
+    const decoded = verifyAuthenticationToken(token);
+
+    console.log("Decoded token:", decoded);
+
+    // 5. Attach authenticated SpotOwner
+    req.spotOwner = decoded;
+
+    console.log(
+      "Spot Owner authenticated successfully"
+    );
+
+    next();
+
+  } catch (error) {
+    console.error(
+      "SPOT OWNER AUTH ERROR:",
+      error
+    );
+
+    throw new UnauthenticatedError(
+      "invalid or missing token"
+    );
+  }
+}*/
+//delete the above when pushing 
 export default function spotOwnerMiddleware(req, res, next) {
     try {
         console.log("========== SPOT OWNER MIDDLEWARE ==========");

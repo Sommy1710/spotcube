@@ -5,6 +5,7 @@ import { createSpotCommentRequest } from "./create-spotComment.request.js";
 import { User } from "../auth/user.schema.js";
 import {SpotOwner} from '../spotOwner/spotOwner.schema.js';
 import { asyncHandler } from "../../lib/util.js";
+import {createNotification} from "../notifications/notification.service.js";
 import {
     ValidationError,
     NotFoundError,
@@ -99,6 +100,24 @@ if (req.user?.role === "spotOwner") {
             },
         }
     );
+
+    //create notification 
+    //dont notify the spotOwner if they comment on their own spotpost
+    if (
+        spotPost.author.toString() !== authorId.toString()
+    ) {
+        await createNotification({
+            //owner of the spotPost
+            recipient: spotPost.author,
+            recipientModel: "SpotOwner",
+            sender: authorId,
+            senderModel: authorModel,
+            type: "COMMENTED_ON_SPOT_POST",
+            entityId: spotPost._id,
+            entityModel: "SpotPost",
+            message: `${username} commented on your spotpost.`
+        })
+    }
 
     return res.status(201).json({
         success: true,

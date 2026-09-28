@@ -13,8 +13,199 @@ import axios from "axios"; // for geocoding API calls
 import {Follow} from "../spotOwner/spotOwner.schema.js"
 import mongoose from "mongoose";
 import { Types } from "mongoose";
+import { createNotification } from "../notifications/notification.service.js";
+
+
+export const notifyFollowersOfNewSpotPost = async ({
+    spotOwnerId,
+    spotOwnerUsername,
+    spotPostId
+}) => {
+
+    // Find everyone following this SpotOwner
+    const followers = await Follow.find({
+        following: spotOwnerId,
+        followingModel: "SpotOwner"
+    }).lean();
+
+    if (followers.length === 0) {
+        return;
+    }
+
+    // Create notifications for all followers
+    await Promise.all(
+        followers.map((follow) =>
+            createNotification({
+                recipient: follow.follower,
+                recipientModel: follow.followerModel,
+
+                sender: spotOwnerId,
+                senderModel: "SpotOwner",
+
+                type: "NEW_SPOT_POST",
+
+                entityId: spotPostId,
+                entityModel: "SpotPost",
+
+                message: `${spotOwnerUsername} just created a new spot post, go check it out!`
+            })
+        )
+    );
+};
 
 export const createNewSpotPost = asyncHandler(async (req, res) => {
+  if (!req.spotOwner || !req.spotOwner.id) {
+    throw new UnauthenticatedError("spot owner not authenticated");
+  }
+
+  const imageFiles = req.files?.photos || [];
+  const videoFiles = req.files?.videos || [];
+
+  if (imageFiles.length === 0) {
+    throw new ValidationError("At least one photo must be uploaded.");
+  }
+
+  // Upload images
+  const photoUrls = await Promise.all(
+    imageFiles.map(
+      (file) =>
+        new Promise((resolve, reject) => {
+          cloudinary.uploader
+            .upload_stream(
+              { resource_type: "image" },
+              (error, result) => {
+                if (error) return reject(error);
+
+                resolve(result.secure_url);
+              }
+            )
+            .end(file.buffer);
+        })
+    )
+  );
+
+  // Upload videos
+  const videoUrls = await Promise.all(
+    videoFiles.map(
+      (file) =>
+        new Promise((resolve, reject) => {
+          cloudinary.uploader
+            .upload_stream(
+              { resource_type: "video" },
+              async (error, result) => {
+                if (error) return reject(error);
+
+                if (result.duration && result.duration > 60) {
+                  await cloudinary.uploader.destroy(result.public_id, {
+                    resource_type: "video",
+                  });
+
+                  return reject(
+                    new Error("Each video must be 60 seconds or less.")
+                  );
+                }
+
+                resolve(result.secure_url);
+              }
+            )
+            .end(file.buffer);
+        })
+    )
+  );
+
+  // Joi validation
+  const validator = new Validator();
+
+  const { errors, value } = validator.validate(
+    createSpotPostRequest,
+    req.body
+  );
+
+  if (errors) {
+    throw new ValidationError(
+      "The request failed with the following errors.",
+      errors
+    );
+  }
+
+  // Geocode location string → coordinates
+  let geoLocation = null;
+  let geoMessage = "Geolocation found successfully.";
+
+  if (value.location) {
+    try {
+      const geoRes = await axios.get(
+        "https://nominatim.openstreetmap.org/search",
+        {
+          params: {
+            q: value.location,
+            format: "json",
+            limit: 1,
+          },
+          headers: {
+            "User-Agent": "Hometrace/1.0 (hometrace2@gmail.com)",
+          },
+        }
+      );
+
+      if (geoRes.data && geoRes.data.length > 0) {
+        const { lon, lat } = geoRes.data[0];
+
+        geoLocation = {
+          type: "Point",
+          coordinates: [parseFloat(lon), parseFloat(lat)],
+        };
+      } else {
+        geoMessage =
+          "Geolocation not found, spot post created without coordinates.";
+      }
+    } catch (err) {
+      console.error("Geocoding error:", err.message);
+
+      geoMessage =
+        "Failed to fetch geolocation, spot post created without coordinates.";
+    }
+  } else {
+    geoMessage = "No location provided, spot post created without coordinates.";
+  }
+
+  // Build payload
+  const spotPostPayload = {
+    ...value,
+
+    author: req.spotOwner.id,
+    username: req.spotOwner.username,
+
+    photos: photoUrls,
+    videos: videoUrls,
+
+    geoLocation,
+  };
+
+  // Save spot post
+  const spotPost = await spotPostService.createSpotPost(
+    spotPostPayload
+  );
+
+  //notify the spotowners followers
+  await notifyFollowersOfNewSpotPost({
+    spotOwnerId: req.spotOwner.id,
+    spotOwnerUsername: req.spotOwner.username,
+    spotPostId: spotPost._id
+  })
+
+  res.status(201).json({
+    success: true,
+    message: "New spot post created successfully",
+
+    data: {
+      spotPost,
+    },
+
+    geoMessage,
+  });
+});
+/*export const createNewSpotPost = asyncHandler(async (req, res) => {
   if (!req.spotOwner || !req.spotOwner.id) {
     throw new UnauthenticatedError("spot owner not authenticated");
   }
@@ -123,7 +314,7 @@ res.status(201).json({
     },
     geoMessage
 });
-});
+});*/
 
 export const fetchAllSpotPosts = asyncHandler(async (req, res) => {
   if (!req.spotOwner || !req.spotOwner.id) {

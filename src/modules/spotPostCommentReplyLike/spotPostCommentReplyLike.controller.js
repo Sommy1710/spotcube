@@ -1,10 +1,14 @@
 import { SpotCommentReply } from "../spotcommentReply/spotCommentReply.schema.js";
 import { SpotCommentReplyLike } from "./spotPostCommentReplyLike.schema.js";
 import { asyncHandler } from "../../lib/util.js";
+import { createNotification } from "../notifications/notification.service.js";
 import {
     NotFoundError,
     UnauthenticatedError,
 } from "../../lib/error-definitions.js";
+import { User } from "../auth/user.schema.js";
+import { SpotOwner } from "../spotOwner/spotOwner.schema.js";
+
 
 export const toggleLikeSpotCommentReply = asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -89,6 +93,34 @@ export const toggleLikeSpotCommentReply = asyncHandler(async (req, res) => {
 
     const updatedReply = await SpotCommentReply.findById(id)
         .select("replyLikeCount");
+    
+    //dont notify someone when they like their own reply
+    const isOwnReply = reply.author.toString() === accountId.toString() && reply.authorModel === accountModel;
+
+    if (!isOwnReply) {
+        //get the name of the person who liked
+        if (accountModel === "spotOwner") {
+            const spotOwner = await SpotOwner.findById(accountId)
+            .select("username");
+            username = spotOwner?.username || "Someone";
+        } else {
+            const user = 
+            await User.findById(accountId)
+            .select("username");
+            username = user?.username || "Someone";
+        }
+
+        await createNotification({
+            recipient: reply.author,
+            recipientModel: reply.authorModel,
+            sender: accountId,
+            senderModel: accountModel,
+            type: "REPLY_LIKED",
+            entityId: reply._id,
+            entityModel: "SpotPostComment",
+            message: `${username} liked your reply.`,
+        });
+    }
 
     return res.status(200).json({
         success: true,

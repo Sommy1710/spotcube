@@ -1,10 +1,14 @@
 import { SpotComment } from "../spotPostComment/spotPostComment.schema.js";
 import { SpotCommentLike } from "./spotPostCommentLike.schema.js";
 import { asyncHandler } from "../../lib/util.js";
+import { createNotification } from "../notifications/notification.service.js";
 import {
     NotFoundError,
     UnauthenticatedError,
 } from "../../lib/error-definitions.js";
+import {User} from '../auth/user.schema.js';
+import {SpotOwner} from '../spotOwner/spotOwner.schema.js';
+
 
 export const toggleLikeSpotComment = asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -13,6 +17,7 @@ export const toggleLikeSpotComment = asyncHandler(async (req, res) => {
         throw new UnauthenticatedError("Authentication required.");
     }
 
+    // Determine who is liking the comment
     let accountId;
     let accountModel;
 
@@ -27,19 +32,23 @@ export const toggleLikeSpotComment = asyncHandler(async (req, res) => {
         accountModel = "SpotOwner";
     }
 
+    // Find comment
     const comment = await SpotComment.findById(id);
 
     if (!comment) {
         throw new NotFoundError("Comment not found.");
     }
 
+    // Check if already liked
     const existingLike = await SpotCommentLike.findOne({
         comment: id,
         user: accountId,
         userModel: accountModel,
     });
 
-    // Unlike
+    // =========================
+    // UNLIKE
+    // =========================
     if (existingLike) {
         await SpotCommentLike.deleteOne({
             _id: existingLike._id,
@@ -60,7 +69,9 @@ export const toggleLikeSpotComment = asyncHandler(async (req, res) => {
         });
     }
 
-    // Like
+    // =========================
+    // LIKE
+    // =========================
     await SpotCommentLike.create({
         comment: id,
         user: accountId,
@@ -70,6 +81,45 @@ export const toggleLikeSpotComment = asyncHandler(async (req, res) => {
     comment.commentLikeCount += 1;
 
     await comment.save();
+
+    // ==========================================
+    // DON'T NOTIFY SOMEONE ABOUT THEIR OWN LIKE
+    // ==========================================
+    const isOwnComment =
+        comment.author.toString() === accountId.toString() &&
+        comment.authorModel === accountModel;
+
+    if (!isOwnComment) {
+
+        // Get username of person who liked the comment
+        let account;
+
+        if (accountModel === "User") {
+            account = await User.findById(accountId)
+                .select("username");
+        } else {
+            account = await SpotOwner.findById(accountId)
+                .select("username");
+        }
+
+        const username = account?.username || "Someone";
+
+        // Create notification
+        await createNotification({
+            recipient: comment.author,
+            recipientModel: comment.authorModel,
+
+            sender: accountId,
+            senderModel: accountModel,
+
+            type: "COMMENT_LIKED",
+
+            entityId: comment._id,
+            entityModel: "SpotPostComment",
+
+            message: `${username} liked your comment.`,
+        });
+    }
 
     return res.status(200).json({
         success: true,

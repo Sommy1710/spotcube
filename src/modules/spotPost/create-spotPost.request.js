@@ -6,6 +6,19 @@ export const createSpotPostRequest = Joi.object({
         .allow("")
         .default(""),
 
+    category: Joi.string()
+        .valid(
+            "Bar",
+            "Cafe",
+            "resturant",
+            "Lounge",
+            "Store",
+            "Club",
+            "Park",
+            "Other"
+        )
+        .required(),
+
     location: Joi.string()
         .trim()
         .optional(),

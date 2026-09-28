@@ -14,6 +14,7 @@ import crypto from 'crypto';
 //import { createNotification } from "../notifications/notification.service.js";
 import {User} from "../auth/user.schema.js";
 import { ProfileView } from './spotOwner.schema.js';
+import { createNotification } from './../notifications/notification.service.js';
 
 
 
@@ -179,6 +180,106 @@ export const verifyEmailOTP = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Email verified successfully.' });
 });
 
+/*export const authenticateSpotOwner = asyncHandler(async (req, res) => {
+  const validator = new Validator();
+
+  const { value, errors } = validator.validate(
+    AuthSpotOwnerRequest,
+    req.body
+  );
+
+  if (errors) {
+    throw new ValidationError(
+      "the request failed with the following errors",
+      errors
+    );
+  }
+
+  const spotOwner = await SpotOwner.findOne({
+    email: value.email
+  });
+
+  if (!spotOwner) {
+    return res.status(404).json({
+      message: "Spot Owner not found"
+    });
+  }
+
+  // Check if banned
+  if (spotOwner.isBanned) {
+    return res.status(403).json({
+      success: false,
+      message: "Your account has been banned.",
+      data: {
+        bannedAt: spotOwner.bannedAt,
+        reason: spotOwner.banReason
+      }
+    });
+  }
+
+  // Check email verification
+  if (!spotOwner.isEmailVerified) {
+    const otpCode = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    spotOwner.emailVerificationCode = otpCode;
+    spotOwner.emailCodeExpiry = otpExpiry;
+
+    await spotOwner.save();
+
+    try {
+      await sendEmail({
+        to: spotOwner.email,
+        subject: "Verify your email",
+        html: `
+          <p>Your email is not verified.</p>
+          <p>Your new verification code is:
+            <strong>${otpCode}</strong>
+          </p>
+          <p>This code expires in 10 minutes.</p>
+        `
+      });
+
+      console.log("verification OTP resent");
+    } catch (err) {
+      console.warn(
+        "Failed to send verification email",
+        err.message
+      );
+    }
+
+    return res.status(403).json({
+      message:
+        "Email not verified. A new verification code has been sent to your email.",
+      data: {
+        email: spotOwner.email,
+        expiresAt: otpExpiry
+      }
+    });
+  }
+
+  const token = await authService.authenticateSpotOwner(value);
+
+  // Store JWT in cookie
+  res.cookie("authentication", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite:
+      process.env.NODE_ENV === "production"
+        ? "none"
+        : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Spot Owner successfully logged in",
+    data: {
+      token
+    }
+  });
+});*/
+// delete the above when pushing 
 export const authenticateSpotOwner = asyncHandler(async (req, res) => {
   const validator = new Validator();
 
@@ -613,6 +714,42 @@ export const toggleFollow = asyncHandler(async (req, res) => {
                   { $inc: { followingCount: 1 } }
               ),
     ]);
+
+    //create notification
+    //get follower information for the notification message 
+    let followerAccount;
+
+    if(followerModel === "User") {
+      followerAccount = await User.findById(
+        followerId
+      ).select("username");
+    } else {
+      followerAccount = await SpotOwner.findById(
+        followerId
+      ).select("username");
+    } 
+
+    const followerName = followerAccount?.username;
+    await createNotification({
+      //person receiving notification
+      recipient: followingAccount._id,
+
+      recipientModel: followingModel,
+
+      // person who followed
+      sender: followerId,
+
+      senderModel: followerModel,
+
+      type: "NEW_FOLLOWER",
+
+      // the entity that caused the notification
+      entityId: followerId,
+
+      entityModel: followerModel,
+
+      message: `${followerName || "Someone"} started following you.`
+    });
 
     return res.status(200).json({
         success: true,

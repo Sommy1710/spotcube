@@ -174,6 +174,88 @@ export const verifyEmailOTP = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Email verified successfully.' });
 });
 
+/*export const authenticateUser = asyncHandler(async (req, res) => {
+  const validator = new Validator();
+
+  const { value, errors } = validator.validate(
+    AuthUserRequest,
+    req.body
+  );
+
+  if (errors) {
+    throw new ValidationError(
+      "the request failed with the following errors",
+      errors
+    );
+  }
+
+  const user = await User.findOne({ email: value.email });
+
+  if (!user) {
+    return res.status(404).json({
+      message: "User not found"
+    });
+  }
+
+  if (!user.isEmailVerified) {
+    const otpCode = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    user.emailVerificationCode = otpCode;
+    user.emailCodeExpiry = otpExpiry;
+
+    await user.save();
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Verify your email",
+        html: `
+          <p>Your email is not verified.</p>
+          <p>Your new verification code is:
+          <strong>${otpCode}</strong></p>
+          <p>This code expires in 10 minutes.</p>
+        `
+      });
+
+      console.log("verification OTP resent");
+    } catch (err) {
+      console.warn(
+        "Failed to send verification email",
+        err.message
+      );
+    }
+
+    return res.status(403).json({
+      message: "Email not verified. A new OTP has been sent to your email.",
+      data: {
+        email: user.email,
+        expiresAt: otpExpiry
+      }
+    });
+  }
+
+  const token = await authService.authenticateUser(value, req);
+
+  // Store JWT in cookie
+  res.cookie("authentication", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production"
+      ? "none"
+      : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "user successfully logged in",
+    data: {
+      token
+    }
+  });
+});*/
+//delete the bove controller when pushing 
 export const authenticateUser = asyncHandler(async(req, res) => {
   const validator = new Validator();
   const {value, errors} = validator.validate(AuthUserRequest, req.body);

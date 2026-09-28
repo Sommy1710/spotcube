@@ -4,6 +4,21 @@ const SpotPostSchema = new Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: "SpotOwner", required: true },
   username: {type: String, required: true},
   caption: { type: String, maxlength: 2200, default: "" },
+  category: {
+    type: String,
+    enum: [
+      "Bar",
+      "Cafe",
+      "Resturant",
+      "Lounge",
+      "Store",
+      "Club",
+      "Park",
+      "other"
+    ],
+    required: true
+  },
+  
   photos: {
     type: [String],
     required: [true, 'At least one photo is required.'],

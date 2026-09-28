@@ -1,4 +1,4 @@
-import {config} from "dotenv"
+/*import {config} from "dotenv"
 import {createClient} from "redis";
 config()
 
@@ -18,4 +18,4 @@ export const connectToRedis = async () => {
     } catch (error) {
         console.error(error);
     }
-};
+};*/
