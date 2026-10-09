@@ -26,7 +26,7 @@ const NotificationSchema = new Schema(
 
     type: {
       type: String,
-      enum: ["SPOT_POST_LIKED", "NEW_FOLLOWER", "COMMENTED_ON_SPOT_POST", "COMMENT_LIKED", "COMMENT_REPLIED", "REPLY_LIKED", "NEW_SPOT_POST"],
+      enum: ["SPOT_POST_LIKED", "NEW_FOLLOWER", "COMMENTED_ON_SPOT_POST", "COMMENT_LIKED", "COMMENT_REPLIED", "REPLY_LIKED", "NEW_SPOT_POST", "NEW_POST", "POST_LIKED", "COMMENTED_ON_POST"],
       required: true
     },
 
@@ -37,7 +37,7 @@ const NotificationSchema = new Schema(
 
     entityModel: {
       type: String,
-      enum: ["SpotPost", "SpotOwner", "User", "SpotPostComment"],
+      enum: ["SpotPost", "SpotOwner", "User", "SpotPostComment", "Post"],
       required: true
     },
 

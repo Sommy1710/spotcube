@@ -2,10 +2,12 @@ import axios from "axios";
 import { asyncHandler } from "../../lib/util.js";
 import {UnauthenticatedError, UnauthorizedError, ValidationError, NotFoundError} from "../../lib/error-definitions.js";
 import { Validator } from "../../lib/validator.js";
-import {Post} from "./post.schema.js";
+import {Post, PostLike} from "./post.schema.js";
 import { createPostRequest, updatePostRequest } from "./post.request.js";
 import {v2 as cloudinary} from 'cloudinary';
 import { User } from "../auth/user.schema.js";
+import { createNotification } from "../notifications/notification.service.js";
+import {SpotOwner} from "../spotOwner/spotOwner.schema.js";
 
 
 export const createPost = asyncHandler(async (req, res) => {
@@ -450,4 +452,127 @@ export const updatePost = asyncHandler(async (req, res) => {
     },
   });
 
+});
+
+export const toggleLikePost = asyncHandler(async (req, res) => {
+  const { postId: id } = req.params;
+
+  // ensure authenticated (works for both User and SpotOwner)
+  if (!req.user && !req.spotOwner) {
+    throw new UnauthenticatedError("Authentication required");
+  }
+
+  // determine who is liking
+  let accountId;
+  let accountModel;
+
+  if (req.user?.role === "spotOwner") {
+    accountId = req.user.id;
+    accountModel = "SpotOwner";
+  } else if (req.user) {
+    accountId = req.user.id;
+    accountModel = "User";
+  } else {
+    accountId = req.spotOwner.id;
+    accountModel = "SpotOwner";
+  }
+
+  // find the post
+  const post = await Post.findById(id);
+
+  if (!post) {
+    throw new NotFoundError("post not found");
+  }
+
+  // check if already liked
+  const existingLike = await PostLike.findOne({
+    post: id,
+    user: accountId,
+    userModel: accountModel,
+  });
+
+  // =========================
+  // UNLIKE
+  // =========================
+  if (existingLike) {
+    await PostLike.deleteOne({ _id: existingLike._id });
+
+    post.likeCount = Math.max(post.likeCount - 1, 0);
+    await post.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "post unliked successfully",
+      liked: false,
+      likeCount: post.likeCount,
+    });
+  }
+
+  // =========================
+  // LIKE
+  // =========================
+  await PostLike.create({
+    post: id,
+    user: accountId,
+    userModel: accountModel,
+  });
+
+  post.likeCount += 1;
+  await post.save();
+
+  // ==========================================
+  // DON'T NOTIFY SOMEONE ABOUT THEIR OWN LIKE
+  // ==========================================
+  // Post.author always refers to a User (see Post schema)
+  const recipientModel = "User";
+
+  const isOwnPost =
+    post.author.toString() === accountId.toString() &&
+    accountModel === "User";
+
+  if (!isOwnPost) {
+    // get the name of the person who liked the post
+    let account;
+
+    if (accountModel === "User") {
+      account = await User.findById(accountId).select("username");
+    } else {
+      account = await SpotOwner.findById(accountId).select(
+        "username firstname lastname"
+      );
+    }
+
+    let likerName = "Someone";
+
+    if (accountModel === "User") {
+      likerName = account?.username || "Someone";
+    } else {
+      likerName =
+        `${account?.firstname || ""} ${account?.lastname || ""}`.trim() ||
+        account?.username ||
+        "Someone";
+    }
+
+    await createNotification({
+      recipient: post.author,
+      recipientModel,
+
+      sender: accountId,
+      senderModel: accountModel,
+
+      type: "POST_LIKED",
+
+      entityId: post._id,
+      entityModel: "Post",
+
+      message: `${likerName} liked your post.`,
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "post liked successfully",
+    liked: true,
+    likeCount: post.likeCount,
+  });
 });

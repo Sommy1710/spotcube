@@ -70,3 +70,42 @@ PostSchema.index({
 
 
 export const Post = model("Post", PostSchema);
+
+const PostLikeSchema = new Schema(
+  {
+    post: {
+      type: Schema.Types.ObjectId,
+      ref: "Post",
+      required: true,
+    },
+
+    user: {
+      type: Schema.Types.ObjectId,
+      refPath: "userModel",
+      required: true,
+    },
+
+    userModel: {
+      type: String,
+      enum: ["User", "SpotOwner"],
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+//prevent duplicate likes
+PostLikeSchema.index(
+  {
+    post: 1,
+    user: 1,
+    userModel: 1,
+  },
+  {
+    unique: true,
+  }
+);
+
+export const PostLike = model("PostLike", PostLikeSchema);

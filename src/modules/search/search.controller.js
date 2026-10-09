@@ -3,6 +3,8 @@ import { ValidationError } from "../../lib/error-definitions.js";
 import { User } from "../auth/user.schema.js";
 import { SpotOwner } from "../spotOwner/spotOwner.schema.js";
 import { SpotPost } from "../spotPost/spotPost.schema.js";
+import {Post} from "../post/post.schema.js";
+
 
 export const globalSearch = asyncHandler(async (req, res) => {
     const query = req.query.q?.trim();
@@ -13,9 +15,10 @@ export const globalSearch = asyncHandler(async (req, res) => {
 
     const limit = Math.min(Number(req.query.limit) || 10, 30);
 
-    const regex = new RegExp(query, "i");
+    const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(safeQuery, "i");
 
-    const [users, spotOwners, spotPosts] = await Promise.all([
+    const [users, spotOwners, spotPosts, posts] = await Promise.all([
 
         // Users
         User.find({
@@ -55,6 +58,16 @@ export const globalSearch = asyncHandler(async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(limit)
             .lean(),
+
+        Post.find({
+            caption: regex,
+        })
+            .select(
+                "author username caption photos videos likeCount commentCount views createdAt"
+            )
+            .sort({createdAt: -1})
+            .limit(limit)
+            .lean(),
     ]);
 
     return res.status(200).json({
@@ -76,6 +89,11 @@ export const globalSearch = asyncHandler(async (req, res) => {
             spotPosts: {
                 total: spotPosts.length,
                 results: spotPosts,
+            },
+            
+            posts: {
+                total: posts.length,
+                results: posts,
             },
         },
     });
