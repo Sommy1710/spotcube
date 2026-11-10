@@ -2,7 +2,7 @@ import {asyncHandler} from '../../lib/util.js';
 import argon from 'argon2';
 import * as authService from './auth.service.js';
 import {Validator} from '../../lib/validator.js';
-import {CreateUserRequest, UpdateUserRequest, ChangeUserPasswordRequest} from './create-user.request.js';
+import {CreateUserRequest, UpdateUserRequest, ChangeUserPasswordRequest, updateLocationRequest} from './create-user.request.js';
 import { AuthUserRequest, } from './auth-user.request.js';
 import { ValidationError } from '../../lib/error-definitions.js';
 import {User} from './user.schema.js';
@@ -174,7 +174,7 @@ export const verifyEmailOTP = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Email verified successfully.' });
 });
 
-/*export const authenticateUser = asyncHandler(async (req, res) => {
+export const authenticateUser = asyncHandler(async (req, res) => {
   const validator = new Validator();
 
   const { value, errors } = validator.validate(
@@ -254,9 +254,9 @@ export const verifyEmailOTP = asyncHandler(async (req, res) => {
       token
     }
   });
-});*/
+});
 //delete the bove controller when pushing 
-export const authenticateUser = asyncHandler(async(req, res) => {
+/*export const authenticateUser = asyncHandler(async(req, res) => {
   const validator = new Validator();
   const {value, errors} = validator.validate(AuthUserRequest, req.body);
   if (errors) throw new ValidationError('the request failed with the following errors', errors);
@@ -299,7 +299,7 @@ export const authenticateUser = asyncHandler(async(req, res) => {
   const token = await authService.authenticateUser(value, req);
   return res.status(200).json({success: true, message: "user successfully logged in", data: {token}});
 
-});
+});*/
 
 export const getAuthenticatedUser = asyncHandler(async(req, res) =>
 {
@@ -531,3 +531,89 @@ export const resetPassword = asyncHandler(async (req, res) => {
 });
 
 
+
+export const updateMyLocation = asyncHandler(async (req, res) => {
+
+  // 1. CHECK AUTHENTICATION
+  if (!req.user || !req.user.id) {
+    throw new UnauthenticatedError("user not authenticated");
+  }
+
+  // 2. JOI VALIDATION
+  const validator = new Validator();
+
+  const { errors, value } = validator.validate(
+    updateLocationRequest,
+    req.body
+  );
+
+  if (errors) {
+    throw new ValidationError(
+      "The request failed with the following errors.",
+      errors
+    );
+  }
+
+  // 3. SAVE (overwrites the previous point, no location history is kept)
+  await User.updateOne(
+    { _id: req.user.id },
+    {
+      currentLocation: {
+        type: "Point",
+        coordinates: [value.longitude, value.latitude], // longitude first
+      },
+      locationUpdatedAt: new Date(),
+    }
+  );
+
+  // 4. RESPONSE
+  return res.status(200).json({
+    success: true,
+    message: "Location updated successfully.",
+  });
+});
+
+export const becomeSpotCreator = asyncHandler(async (req, res) =>{
+  //make sure user is logged in
+  if (!req.user || !req.user.id) {
+    throw new UnauthenticatedError(
+      "you must be logged in to become a spot creator"
+    );
+  }
+
+  //find logged in user account
+  const user = await User.findById(req.user.id);
+  if(!user) {
+    throw new NotFoundError("user account not found");
+  }
+  // check if the account is banned 
+  if (user.isBanned) {
+    throw new UnauthorizedError(
+      "banned users cannot become spot creatoes"
+    );
+  }
+  //check if user is already a spot creator
+  if (user.isSpotCreator) {
+    return res.status(400).json({
+      success: false,
+      message: "You are already a spot creator"
+    });
+  }
+  //convert the account to spot creator
+  user.isSpotCreator = true;
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "your account is now a Spot Creator",
+    data: {
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        isSpotCreator: user.isSpotCreator
+      }
+    }
+  });
+});

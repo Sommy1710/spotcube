@@ -1,0 +1,15 @@
+notification for spot post like
+-swagger for notification module done
+-swagger for post module done
+-swagger for post comment done
+-swagger for post comment like done
+-swagger for search done
+
+-for cover
+instead of the spot owner to input the category when creating a cover, it should fetch it from the spot cover account
+write swagger for cover
+use openstreet map to implement actual geolocation to get coordinates.
+
+geolocation with openstreetmap done(use a different geolocation APi openstreetmap is painfully limited)
+work on get nearby location, to get from address, then city/town then state, then country.
+

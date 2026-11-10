@@ -70,18 +70,22 @@ const SpotOwnerSchema = new Schema({
 },
 
 location: { type: String, required: true },
-    geoLocation: {
-    type: {
-      type: String,
-      enum: ["Point"],
-      default: "Point"
-      
+        geoLocation: {
+        type: {
+            type: String,
+            enum: ["Point"],
+        },
+        coordinates: {
+            type: [Number], // [longitude, latitude]
+        },
     },
-    coordinates: {
-      type: [Number], // [longitude, latitude]
-      default: [0, 0]
-    }
-  },
+
+    geoPrecision: {
+        type: String,
+        enum: ["address", "area", "city", "state", "country"],
+    },
+
+    city: { type: String, trim: true },
 
   heardAboutUs: {
           type: String,

@@ -3,7 +3,7 @@ import { UnauthenticatedError } from "../../lib/error-definitions.js";
 import { verifyAuthenticationToken } from "../providers/jwt.provider.js";
 import { getBearerToken } from "../../lib/util.js";
 
-/*export default function spotOwnerMiddleware(req, res, next) {
+export default function spotOwnerMiddleware(req, res, next) {
   try {
     console.log("========== SPOT OWNER MIDDLEWARE ==========");
 
@@ -63,9 +63,9 @@ import { getBearerToken } from "../../lib/util.js";
       "invalid or missing token"
     );
   }
-}*/
+}
 //delete the above when pushing 
-export default function spotOwnerMiddleware(req, res, next) {
+/*export default function spotOwnerMiddleware(req, res, next) {
     try {
         console.log("========== SPOT OWNER MIDDLEWARE ==========");
 
@@ -95,7 +95,7 @@ export default function spotOwnerMiddleware(req, res, next) {
 
         throw new UnauthenticatedError("invalid or missing token");
     }
-}
+}*/
 /*export default function spotOwnerMiddleware(req, res, next) {
   try {
     const token = getBearerToken(req);

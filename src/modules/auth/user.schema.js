@@ -107,6 +107,18 @@ const UserSchema = new Schema({
     }
   },
 
+  currentLocation: {
+    type: {
+        type: String,
+        enum: ["Point"],
+    },
+    coordinates: {
+        type: [Number],
+    },
+  },
+
+  locationUpdatedAt: Date,
+  
     heardAboutUs: {
         type: String,
         enum: [
@@ -164,6 +176,10 @@ const UserSchema = new Schema({
         enum: ["user", "admin"],
         default: "user",
     },
+    isSpotCreator: {
+        type: Boolean,
+        default: false
+    },
 
     emailVerificationCode: String,
     emailCodeExpiry: Date,
@@ -191,6 +207,7 @@ UserSchema.index({
 });
 
 UserSchema.index({geoLocation: "2dsphere"});
+UserSchema.index({currentLocation: "2dsphere"});
 
 UserSchema.pre('save', async function()
 {

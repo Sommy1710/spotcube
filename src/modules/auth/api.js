@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import {createUserAccount, verifyEmailOTP, authenticateUser, deleteUserAccount, getAuthenticatedUser, deleteprofilePhoto, logoutUser, updateUserAccount, forgotPassword, resetPassword} from './auth.controller.js';
+import {createUserAccount, verifyEmailOTP, authenticateUser, deleteUserAccount, updateMyLocation,becomeSpotCreator, getAuthenticatedUser, deleteprofilePhoto, logoutUser, updateUserAccount, forgotPassword, resetPassword} from './auth.controller.js';
 import upload from '../../lib/upload.js';
 import authMiddleware from '../../app/middleware/auth.middleware.js';
 //import dualAuthMiddleware from '../../app/middleware/dual-auth.middleware.js'
@@ -16,6 +16,8 @@ router.put('/users/:userId', authMiddleware, upload.single('profilePhoto'), upda
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post("/logout", logoutUser);
+router.patch("/location", authMiddleware, updateMyLocation);
+router.post("/become-spot-creator", authMiddleware, becomeSpotCreator);
 
 
 export const authRouter = router;

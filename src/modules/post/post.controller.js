@@ -10,7 +10,269 @@ import { createNotification } from "../notifications/notification.service.js";
 import {SpotOwner} from "../spotOwner/spotOwner.schema.js";
 
 
+
 export const createPost = asyncHandler(async (req, res) => {
+
+  // ============================================================
+  // 1. CHECK AUTHENTICATION
+  // ============================================================
+
+  if (!req.user || !req.user.id) {
+    throw new UnauthenticatedError(
+      "User not authenticated."
+    );
+  }
+
+
+  // ============================================================
+  // 2. FIND THE AUTHENTICATED USER
+  // ============================================================
+
+  const user = await User.findById(req.user.id)
+    .select("username isSpotCreator isBanned isDeleted");
+
+  if (!user) {
+    throw new UnauthenticatedError(
+      "Authenticated user account could not be found."
+    );
+  }
+
+
+  // ============================================================
+  // 3. CHECK IF USER IS A SPOT CREATOR
+  // ============================================================
+
+  if (!user.isSpotCreator) {
+    throw new UnauthorizedError(
+      "Only Spot Creators can create posts."
+    );
+  }
+
+
+  // ============================================================
+  // 4. CHECK IF ACCOUNT IS BANNED
+  // ============================================================
+
+  if (user.isBanned) {
+    throw new UnauthorizedError(
+      "Your account has been banned and you cannot create posts."
+    );
+  }
+
+
+  // ============================================================
+  // 5. CHECK IF ACCOUNT IS DELETED
+  // ============================================================
+
+  if (user.isDeleted) {
+    throw new UnauthorizedError(
+      "Your account has been deleted and you cannot create posts."
+    );
+  }
+
+
+  // ============================================================
+  // 6. GET UPLOADED FILES
+  // ============================================================
+
+  const imageFiles = req.files?.photos || [];
+  const videoFiles = req.files?.videos || [];
+
+
+  // ============================================================
+  // 7. AT LEAST ONE PHOTO OR VIDEO IS REQUIRED
+  // ============================================================
+
+  if (
+    imageFiles.length === 0 &&
+    videoFiles.length === 0
+  ) {
+    throw new ValidationError(
+      "At least one photo or video is required."
+    );
+  }
+
+
+  // ============================================================
+  // 8. MAXIMUM 10 PHOTOS
+  // ============================================================
+
+  if (imageFiles.length > 10) {
+    throw new ValidationError(
+      "You can upload a maximum of 10 photos per post."
+    );
+  }
+
+
+  // ============================================================
+  // 9. MAXIMUM 1 VIDEO
+  // ============================================================
+
+  if (videoFiles.length > 1) {
+    throw new ValidationError(
+      "You can upload a maximum of 1 video per post."
+    );
+  }
+
+
+  // ============================================================
+  // 10. JOI VALIDATION
+  // ============================================================
+
+  const validator = new Validator();
+
+  const { errors, value } = validator.validate(
+    createPostRequest,
+    req.body
+  );
+
+  if (errors) {
+    throw new ValidationError(
+      "The request failed with the following errors.",
+      errors
+    );
+  }
+
+
+  // ============================================================
+  // 11. UPLOAD PHOTOS TO CLOUDINARY
+  // ============================================================
+
+  const photoUrls = await Promise.all(
+    imageFiles.map(
+      (file) =>
+        new Promise((resolve, reject) => {
+
+          cloudinary.uploader
+            .upload_stream(
+              {
+                resource_type: "image",
+              },
+              (error, result) => {
+
+                if (error) {
+                  return reject(error);
+                }
+
+                resolve(result.secure_url);
+              }
+            )
+            .end(file.buffer);
+
+        })
+    )
+  );
+
+
+  // ============================================================
+  // 12. UPLOAD VIDEO TO CLOUDINARY
+  // ============================================================
+
+  const videoUrls = await Promise.all(
+    videoFiles.map(
+      (file) =>
+        new Promise((resolve, reject) => {
+
+          cloudinary.uploader
+            .upload_stream(
+              {
+                resource_type: "video",
+              },
+              async (error, result) => {
+
+                if (error) {
+                  return reject(error);
+                }
+
+
+                // ==================================================
+                // VIDEO MUST BE 60 SECONDS OR LESS
+                // ==================================================
+
+                if (
+                  result.duration &&
+                  result.duration > 60
+                ) {
+
+                  try {
+
+                    await cloudinary.uploader.destroy(
+                      result.public_id,
+                      {
+                        resource_type: "video",
+                      }
+                    );
+
+                  } catch (deleteError) {
+
+                    console.error(
+                      "Failed to delete invalid video from Cloudinary:",
+                      deleteError.message
+                    );
+
+                  }
+
+                  return reject(
+                    new ValidationError(
+                      "Video must be 60 seconds or less."
+                    )
+                  );
+                }
+
+
+                resolve(result.secure_url);
+              }
+            )
+            .end(file.buffer);
+
+        })
+    )
+  );
+
+
+  // ============================================================
+  // 13. BUILD POST DATA
+  // ============================================================
+
+  const postPayload = {
+    ...value,
+
+    author: req.user.id,
+
+    username: user.username,
+
+    photos: photoUrls,
+
+    videos: videoUrls,
+  };
+
+
+  // ============================================================
+  // 14. CREATE POST
+  // ============================================================
+
+  const post = await Post.create(
+    postPayload
+  );
+
+
+  // ============================================================
+  // 15. RESPONSE
+  // ============================================================
+
+  return res.status(201).json({
+    success: true,
+
+    message: "Post created successfully.",
+
+    data: {
+      post,
+    },
+  });
+
+});
+
+/*export const createPost = asyncHandler(async (req, res) => {
 
   // ============================================================
   // 1. CHECK AUTHENTICATION
@@ -236,7 +498,7 @@ export const createPost = asyncHandler(async (req, res) => {
     },
   });
 
-});
+});*/
 
 export const extractCloudinaryPublicId = (url) => {
   try {

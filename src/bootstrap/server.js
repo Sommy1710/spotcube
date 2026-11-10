@@ -20,7 +20,10 @@ import {postCommentReplyLikeRouter} from '../modules/postCommentReplyLike/postCo
 import {spotCommentLikeRouter} from '../modules/spotPostCommentLike/spotPostCommentLike.routes.js';
 import {spotCommentReplyRouter} from '../modules/spotcommentReply/spotCommentReply.routes.js';
 import {spotCommentReplyLikeRouter} from '../modules/spotPostCommentReplyLike/spotPostCommentReplyLike.routes.js';
-import {searchRouter} from '../modules/search/search.routes.js'
+import {spotCoverRouter} from '../modules/spotCover/spotCover.routes.js';
+import {searchRouter} from '../modules/search/search.routes.js';
+import { incrementPostViewsRouter } from '../modules/postView/postView.routes.js';
+import { incrementSpotPostViewsRouter } from '../modules/spotPostView/spotPostView.routes.js';
 import {postRouter} from '../modules/post/post.routes.js'
 import {notificationsRouter} from '../modules/notifications/notifications.routes.js';
 import cookieParser  from 'cookie-parser';
@@ -213,6 +216,7 @@ app.use('/api/spotPostComment', spotPostCommentRouter);
 app.use('/api/spotPostCommentLike', spotCommentLikeRouter);
 app.use('/api/spotCommentReply', spotCommentReplyRouter);
 app.use('/api/spotCommentReplyLike', spotCommentReplyLikeRouter);
+app.use('/api/spotCover', spotCoverRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/posts', postRouter);
 app.use('/api/postComment', postCommentRouter);
@@ -220,6 +224,8 @@ app.use('/api/postCommentLike', postCommentLikeRouter);
 app.use('/api/postCommentReply', postCommentReplyRouter);
 app.use('/api/postCommentReplyLike', postCommentReplyLikeRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/spotPostView', incrementSpotPostViewsRouter);
+app.use('/api/postView', incrementPostViewsRouter);
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

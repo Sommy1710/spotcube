@@ -2,7 +2,7 @@ import {UnauthenticatedError} from "../../lib/error-definitions.js";
 import { verifyAuthenticationToken } from "../providers/jwt.provider.js";
 import {getBearerToken} from "../../lib/util.js";
 
-/*export default function authMiddleware(req, res, next) {
+export default function authMiddleware(req, res, next) {
   try {
     let token = getBearerToken(req);
 
@@ -23,9 +23,9 @@ import {getBearerToken} from "../../lib/util.js";
       "invalid or missing token"
     );
   }
-}*/
+}
 //delete the above middleware when pushing 
-export default function authMiddleware(req, res, next) {
+/*export default function authMiddleware(req, res, next) {
     try {
         const token = getBearerToken(req);
     const decoded = verifyAuthenticationToken(token);
@@ -34,4 +34,4 @@ export default function authMiddleware(req, res, next) {
     } catch (error) {
         throw new UnauthenticatedError('invalid or missing token');
     }
-}
+}*/

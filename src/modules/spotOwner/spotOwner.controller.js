@@ -11,10 +11,12 @@ import { deleteSpotOwnerById } from './spotOwner.service.js';
 import config from '../../config/app.config.js';
 import { UnauthorizedError } from '../../lib/error-definitions.js';
 import crypto from 'crypto';
-//import { createNotification } from "../notifications/notification.service.js";
 import {User} from "../auth/user.schema.js";
 import { ProfileView } from './spotOwner.schema.js';
 import { createNotification } from './../notifications/notification.service.js';
+import axios from "axios"; // for geocoding API calls
+import {geocodeAddress} from "../../lib/geocode.js";
+
 
 
 
@@ -48,7 +50,8 @@ const generateUniqueReferralCode = async () => {
     return code;
 };
 
-export const createSpotOwnerAccount = asyncHandler(async (req, res) => {
+
+/*export const createSpotOwnerAccount = asyncHandler(async (req, res) => {
     const validator = new Validator();
     const { value, errors } = validator.validate(CreateSpotOwnerRequest, req.body);
 
@@ -59,6 +62,7 @@ export const createSpotOwnerAccount = asyncHandler(async (req, res) => {
         );
     }
 
+    // Upload profile photo
     let profilePhotoUrl = '';
 
     if (req.file) {
@@ -74,6 +78,36 @@ export const createSpotOwnerAccount = asyncHandler(async (req, res) => {
         });
     }
 
+    // Geocode location string → coordinates (registration never fails because of this)
+    let geoLocation;
+    let geoMessage = 'Geolocation found successfully.';
+    try {
+        const geoRes = await axios.get('https://nominatim.openstreetmap.org/search', {
+            params: {
+                q: value.location,
+                format: 'json',
+                limit: 1,
+            },
+            headers: {
+                'User-Agent': 'SpotCube/1.0 (spotcube1@gmail.com)',
+            },
+            timeout: 8000,
+        });
+
+        if (geoRes.data && geoRes.data.length > 0) {
+            const { lon, lat } = geoRes.data[0];
+            geoLocation = {
+                type: 'Point',
+                coordinates: [parseFloat(lon), parseFloat(lat)], // [longitude, latitude]
+            };
+        } else {
+            geoMessage = 'Geolocation not found, account created without coordinates.';
+        }
+    } catch (err) {
+        console.error('Geocoding error:', err.message);
+        geoMessage = 'Failed to fetch geolocation, account created without coordinates.';
+    }
+
     const otpCode = generateOTP();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     const referralCode = await generateUniqueReferralCode();
@@ -83,8 +117,8 @@ export const createSpotOwnerAccount = asyncHandler(async (req, res) => {
 
     if (value.referralCode) {
         const [spotOwnerReferrer, userReferrer] = await Promise.all([
-            SpotOwner.findOne({referralCode: value.referralCode}),
-            User.findOne({referralCode: value.referralCode}),
+            SpotOwner.findOne({ referralCode: value.referralCode }),
+            User.findOne({ referralCode: value.referralCode }),
         ]);
 
         if (spotOwnerReferrer) {
@@ -92,39 +126,35 @@ export const createSpotOwnerAccount = asyncHandler(async (req, res) => {
             referrerModel = 'SpotOwner';
         } else if (userReferrer) {
             referrer = userReferrer;
-            referrerModel = "User";
+            referrerModel = 'User';
         } else {
-            throw new ValidationError("Invalid referral code");
+            throw new ValidationError('Invalid referral code');
         }
     }
 
     const spotOwnerData = {
-    ...value,
-    profilePhoto: profilePhotoUrl,
-    referralCode,
-    referredBy: referrer
-        ? {
-              id: referrer._id,
-              model: referrerModel,
-          }
-        : undefined,
-    emailVerificationCode: otpCode,
-    emailCodeExpiry: otpExpiry,
-    isEmailVerified: false,
-};
-await authService.registerSpotOwner(spotOwnerData);
+        ...value,
+        profilePhoto: profilePhotoUrl,
+        geoLocation, // undefined when not found, so the field is simply not saved
+        referralCode,
+        referredBy: referrer
+            ? {
+                  id: referrer._id,
+                  model: referrerModel,
+              }
+            : undefined,
+        emailVerificationCode: otpCode,
+        emailCodeExpiry: otpExpiry,
+        isEmailVerified: false,
+    };
+
+    await authService.registerSpotOwner(spotOwnerData);
 
     if (referrer !== null) {
-    await referrer.updateOne({
-        $inc: { spotPoints: 1 }
-    });
-}
-
-
-    /*if (referrer) {
-        referrer.spotPoints += 1;
-        await referrer.save()
-    }*/
+        await referrer.updateOne({
+            $inc: { spotPoints: 1 },
+        });
+    }
 
     try {
         await sendEmail({
@@ -134,7 +164,7 @@ await authService.registerSpotOwner(spotOwnerData);
                 <p>Thank you for registering!</p>
                 <p>Your verification code is: <strong>${otpCode}</strong></p>
                 <p>This code expires in 10 minutes.</p>
-            `
+            `,
         });
         console.log('OTP email sent successfully.');
     } catch (err) {
@@ -145,10 +175,135 @@ await authService.registerSpotOwner(spotOwnerData);
         message: 'Spot Owner registered successfully. OTP sent to email.',
         data: {
             email: value.email,
-            expiresAt: otpExpiry
+            expiresAt: otpExpiry,
+            geoLocation: geoLocation || null,
+            geoMessage,
+        },
+    });
+});*/
+
+export const createSpotOwnerAccount = asyncHandler(async (req, res) => {
+    const validator = new Validator();
+    const { value, errors } = validator.validate(CreateSpotOwnerRequest, req.body);
+
+    if (errors) {
+        throw new ValidationError(
+            'The request failed with the following errors',
+            errors
+        );
+    }
+
+    // Upload profile photo
+    let profilePhotoUrl = '';
+
+    if (req.file) {
+        profilePhotoUrl = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { resource_type: 'image' },
+                (error, result) => {
+                    if (error) return reject(new Error('Image upload failed'));
+                    resolve(result.secure_url);
+                }
+            );
+            uploadStream.end(req.file.buffer);
+        });
+    }
+
+        // Geocode: exact address first, then nearest area, then state
+    const geo = await geocodeAddress({
+        location: value.location,
+        state: value.state,
+        country: value.country,
+    });
+
+    const geoMessages = {
+        address: 'Exact address found.',
+        area: 'Exact address not found, using the nearest known area.',
+        city: 'Address not found, using the city/town location.',
+        state: 'Address not found, using the state location.',
+        country: 'Address not found, using the country location.',
+    };
+    const geoMessage = geo
+        ? geoMessages[geo.geoPrecision]
+        : 'Geolocation not found, account created without coordinates.';
+
+    const otpCode = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const referralCode = await generateUniqueReferralCode();
+
+    let referrer = null;
+    let referrerModel = null;
+
+    if (value.referralCode) {
+        const [spotOwnerReferrer, userReferrer] = await Promise.all([
+            SpotOwner.findOne({ referralCode: value.referralCode }),
+            User.findOne({ referralCode: value.referralCode }),
+        ]);
+
+        if (spotOwnerReferrer) {
+            referrer = spotOwnerReferrer;
+            referrerModel = 'SpotOwner';
+        } else if (userReferrer) {
+            referrer = userReferrer;
+            referrerModel = 'User';
+        } else {
+            throw new ValidationError('Invalid referral code');
         }
+    }
+
+    const spotOwnerData = {
+        ...value,
+        profilePhoto: profilePhotoUrl,
+        geoLocation: geo?.geoLocation, // undefined when not found, so the field is simply not saved
+        geoPrecision: geo?.geoPrecision,
+        city: geo?.city,
+        referralCode,
+        referredBy: referrer
+            ? {
+                  id: referrer._id,
+                  model: referrerModel,
+              }
+            : undefined,
+        emailVerificationCode: otpCode,
+        emailCodeExpiry: otpExpiry,
+        isEmailVerified: false,
+    };
+
+    await authService.registerSpotOwner(spotOwnerData);
+
+    if (referrer !== null) {
+        await referrer.updateOne({
+            $inc: { spotPoints: 1 },
+        });
+    }
+
+    try {
+        await sendEmail({
+            to: value.email,
+            subject: 'Your verification code',
+            html: `
+                <p>Thank you for registering!</p>
+                <p>Your verification code is: <strong>${otpCode}</strong></p>
+                <p>This code expires in 10 minutes.</p>
+            `,
+        });
+        console.log('OTP email sent successfully.');
+    } catch (err) {
+        console.warn('Failed to send OTP email', err.message);
+    }
+
+    return res.status(201).json({
+        message: 'Spot Owner registered successfully. OTP sent to email.',
+        data: {
+            email: value.email,
+            expiresAt: otpExpiry,
+            geoLocation: geo?.geoLocation || null,
+            geoPrecision: geo?.geoPrecision || null,
+            geoMessage,
+        },
     });
 });
+
 
 export const verifyEmailOTP = asyncHandler(async (req, res) => {
   const { email, otp } = req.body;
@@ -180,7 +335,7 @@ export const verifyEmailOTP = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Email verified successfully.' });
 });
 
-/*export const authenticateSpotOwner = asyncHandler(async (req, res) => {
+export const authenticateSpotOwner = asyncHandler(async (req, res) => {
   const validator = new Validator();
 
   const { value, errors } = validator.validate(
@@ -278,9 +433,9 @@ export const verifyEmailOTP = asyncHandler(async (req, res) => {
       token
     }
   });
-});*/
+});
 // delete the above when pushing 
-export const authenticateSpotOwner = asyncHandler(async (req, res) => {
+/*export const authenticateSpotOwner = asyncHandler(async (req, res) => {
   const validator = new Validator();
 
   const { value, errors } = validator.validate(
@@ -366,7 +521,7 @@ export const authenticateSpotOwner = asyncHandler(async (req, res) => {
       token
     }
   });
-});
+});*/
 
 export const getAuthenticatedSpotOwner = asyncHandler(async(req, res) =>
 {
