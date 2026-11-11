@@ -72,7 +72,7 @@ export const loginLimiter = (req, res, next) => {
   next();
 };
 
-export const spotOwnerLimiter = loginLimiter; // keeps your old imports working
+export const userlimiter = loginLimiter; // keeps your old imports working
 
 
 /*import rateLimit, { ipKeyGenerator } from "express-rate-limit";
